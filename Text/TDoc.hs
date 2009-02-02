@@ -452,9 +452,6 @@ instance IsNode a => HTML (TDoc a) where toHtml = renderTDocHtml
 instance HTML (TChildOf fatherTag) where
   toHtml (TChild x) = renderTDocHtml x
 
-instance HTML a => HTML (Writer a ()) where
-  toHtml = toHtml . execWriter
-
 lookupContent :: IsAttributeOf Content nodeTag => AttributesOf nodeTag -> Maybe FrenchQuote
 lookupContent (TAttr ContentTag (Content t) : _attrs) = Just t
 lookupContent (_ : attrs) = lookupContent attrs
