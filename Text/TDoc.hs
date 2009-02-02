@@ -56,7 +56,13 @@ data Leaf
 data Title
 data Image
 data Br
+data Hr
 data RawHtml
+data Table
+data Row
+data Col
+data HCol
+data Div
 newtype Content = Content { getContent :: FrenchQuote }
 newtype Style = Style { getStyle :: String } -- put something more typeful
 newtype Url = Url { getUrl :: String }
@@ -90,7 +96,13 @@ data Tag tag where
   TitleTag      :: Tag Title
   ImageTag      :: Tag Image
   BrTag         :: Tag Br
+  HrTag         :: Tag Hr
   RawHtmlTag    :: Html -> Tag RawHtml
+  TableTag      :: Tag Table
+  RowTag        :: Tag Row
+  ColTag        :: Tag Col
+  HColTag       :: Tag HCol
+  DivTag        :: Tag Div
   
   ContentTag    :: Tag Content
   StyleTag      :: Tag Style
@@ -116,50 +128,92 @@ instance IsNode HLink
 instance IsNode Title
 instance IsNode Image
 instance IsNode Br
+instance IsNode Hr
 instance IsNode RawHtml
+instance IsNode Table
+instance IsNode Row
+instance IsNode Col
+instance IsNode HCol
+instance IsNode Div
+
+class IsNode a => IsInline a
+
+instance IsInline Image
+instance IsInline Leaf
+instance IsInline HLink
+instance IsInline Span
+instance IsInline Br
+instance IsInline Hr
+instance IsInline RawHtml
+
+class IsNode a => IsBlock a
+
+instance IsBlock Paragraph
+instance IsBlock Div
+instance IsBlock UList
+instance IsBlock Table
+instance IsBlock RawHtml
+
+class IsNode a => IsBlockOrInline a
+
+instance IsBlockOrInline Image
+instance IsBlockOrInline Leaf
+instance IsBlockOrInline HLink
+instance IsBlockOrInline Span
+instance IsBlockOrInline Br
+instance IsBlockOrInline Hr
+instance IsBlockOrInline RawHtml
+instance IsBlockOrInline Paragraph
+instance IsBlockOrInline Div
+instance IsBlockOrInline UList
+instance IsBlockOrInline Table
 
 -- instance IsNode a => Child Any a
-instance IsNode a => Child a RawHtml
+-- instance IsNode a => Child a RawHtml
+
 instance Child Root Preambule
 instance Child Root Document
-instance Child Document Section
-instance Child Document Paragraph
-instance Child Document Image
-instance Child Document UList
+instance Child Root RawHtml
+
 instance Child Preambule Title
+instance Child Preambule RawHtml
+
 instance Child Title Leaf
+instance Child Title RawHtml
+
+instance Child Document Section
+-- instance IsBlock a => Child Document a
+instance Child Document Paragraph
+instance Child Document Div
+instance Child Document UList
+instance Child Document Table
+instance Child Document RawHtml
+instance Child Document Hr
+
 instance Child Section Subsection
+-- instance IsBlock a => Child Section a
 instance Child Section Paragraph
-instance Child Section Image
+instance Child Section Div
 instance Child Section UList
-instance Child Subsection Paragraph
-instance Child Subsection Image
-instance Child Subsection UList
+instance Child Section Table
+instance Child Section RawHtml
+
+instance IsBlock a => Child Subsection a
+
+instance IsBlockOrInline a => Child Col a
+instance IsBlockOrInline a => Child HCol a
+
+instance IsInline a => Child Paragraph a
+instance IsInline a => Child Span a
+instance IsInline a => Child HLink a
+
+instance IsBlockOrInline a => Child Item a
+
+instance (Child a Div, Child a b) => Child Div b
 instance Child UList Item
-instance Child Item Paragraph
-instance Child Item Image
-instance Child Item HLink
-instance Child Item Leaf
-instance Child Item Span
-instance Child Item Br
-instance Child Paragraph Leaf
-instance Child Paragraph HLink
-instance Child Paragraph Span
-instance Child Paragraph Br
-instance Child Paragraph Image
-instance Child Span Span
-instance Child Span HLink
-instance Child Span Leaf
-instance Child Span Br
-instance Child Span Image
-instance Child HLink Leaf
-instance Child HLink Span
-instance Child HLink Br
-instance Child HLink Image
-instance Child Image Leaf
-instance Child Image HLink
-instance Child Image Span
-instance Child Image Br
+instance Child Row Col
+instance Child Row HCol
+instance Child Table Row
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
@@ -266,11 +320,7 @@ instance Child b a => ToChildren [TDoc a] b where
 instance ToChildren [a] b => ToChildren (Writer [a] ()) b where
   toChildren = toChildren . execWriter
 
-instance ToChildren FrenchQuote Paragraph where toChildren = toChildren . put . leaf
-instance ToChildren FrenchQuote HLink where toChildren = toChildren . put . leaf
-instance ToChildren FrenchQuote Span where toChildren = toChildren . put . leaf
-instance ToChildren FrenchQuote Image where toChildren = toChildren . put . leaf
-instance ToChildren FrenchQuote Title where toChildren = toChildren . put . leaf
+instance Child a Leaf => ToChildren FrenchQuote a where toChildren = toChildren . put . leaf
 
 {-
 instance Child b Leaf => ToChildren FrenchQuote b where
@@ -316,11 +366,26 @@ section t = TNode (SectionTag (toTDoc t :: TDoc a)) []
 subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TGenDoc1 Subsection
 subsection t = TNode (SubsectionTag (toTDoc t :: TDoc a)) []
 
+div :: AttributesOf Div -> TGenDoc1 Div
+div = TNode DivTag
+
 ulist :: TGenDoc1 UList
 ulist = TNode UListTag []
 
 item :: TGenDoc1 Item
 item = TNode ItemTag []
+
+table :: TGenDoc1 Table
+table = TNode TableTag []
+
+col :: TGenDoc1 Col
+col = TNode ColTag []
+
+hcol :: TGenDoc1 HCol
+hcol = TNode HColTag []
+
+row :: TGenDoc1 Row
+row = TNode RowTag []
 
 -- since their is no 'instance Child Leaf X'
 -- one cannot build a 'TNode attrs [x] :: TDoc Leaf'
@@ -344,8 +409,14 @@ spanDoc = TNode SpanTag []
 strong :: TGenDoc1 Span
 strong = TNode SpanTag [classAttr "strong"]
 
+bold :: TGenDoc1 Span
+bold = TNode SpanTag [classAttr "bold"]
+
 br :: TDoc Br
 br = TNode BrTag [] []
+
+hr :: TDoc Hr
+hr = TNode HrTag [] []
 
 hlink :: String -> TGenDoc1 HLink
 hlink url = TNode (HLinkTag (Url url)) []
@@ -406,6 +477,11 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f UListTag      = X.ulist X.! map commonAttr attrs X.<< children
         f ItemTag       = X.li X.! map commonAttr attrs X.<< children
         f ParagraphTag  = X.p X.! map commonAttr attrs X.<< children
+        f DivTag        = X.thediv X.! map commonAttr attrs X.<< children
+        f TableTag      = X.table X.! map commonAttr attrs X.<< children
+        f ColTag        = X.td X.! map commonAttr attrs X.<< children
+        f HColTag       = X.th X.! map commonAttr attrs X.<< children
+        f RowTag        = X.tr X.! map commonAttr attrs X.<< children
         f LeafTag       = assert (null children) $ -- since there is no Child instance for Leaf
                           assert (length attrs == 1) $
                           let x = lookupContent attrs in
@@ -414,6 +490,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f (HLinkTag url)= toHtml $ X.hotlink (getUrl url) X.! map hlinkAttr attrs X.<< children
         f ImageTag      = assert (null children) $ X.image X.! map imageAttr attrs
         f BrTag         = assert (null children) $ X.br X.! map commonAttr attrs
+        f HrTag         = assert (null children) $ X.hr X.! map commonAttr attrs
         f (RawHtmlTag h)= assert (null children) $ assert (null attrs) h
         f ClassAttrTag  = error "impossible"
         f ContentTag    = error "impossible"
@@ -429,6 +506,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
 
         genSpan :: nodeTag ~ Span => Maybe (String, AttributesOf nodeTag) -> Html
         genSpan (Just ("strong", attrs')) = X.strong X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("bold", attrs')) = X.bold X.! map commonAttr attrs' X.<< children
         genSpan _  | null attrs = toHtml children
                    | otherwise  = X.thespan X.! map commonAttr attrs X.<< children
 
