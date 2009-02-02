@@ -7,7 +7,7 @@
 module Text.TDoc where
 
 import qualified Text.XHtml.Strict as X
-import Text.XHtml.Strict (HTML, Html, HtmlAttr, (+++), toHtml)
+import Text.XHtml.Strict (HTML, Html, HtmlAttr, toHtml)
 {-
 import Data.Monoid hiding (Any)
 import Data.Char
@@ -153,6 +153,7 @@ instance IsBlock Div
 instance IsBlock UList
 instance IsBlock Table
 instance IsBlock RawHtml
+instance IsBlock Hr
 
 class IsNode a => IsBlockOrInline a
 
@@ -197,6 +198,7 @@ instance Child Section Div
 instance Child Section UList
 instance Child Section Table
 instance Child Section RawHtml
+instance Child Section Hr
 
 instance IsBlock a => Child Subsection a
 
@@ -234,8 +236,6 @@ instance IsAttributeOf Src Image
 instance IsAttributeOf Height Image
 instance IsAttributeOf Width Image
 
--- instance IsAttributeOf Url HLink
-
 data TDoc tag where
   TNode   :: Tag fatherTag -> [AttributeOf fatherTag] ->
              [TChildOf fatherTag] -> TDoc fatherTag
@@ -245,7 +245,7 @@ data TChildOf tag where
 
 type PutM a = Writer [a] ()
 
-type TDocMaker a = [TChildOf a] -> TDoc a
+type TDocMaker node = forall children. ToChildren children node => children -> TDoc node
 
 data AttributeOf nodeTag where
   TAttr :: IsAttributeOf attrTag nodeTag => Tag attrTag -> attrTag -> AttributeOf nodeTag
@@ -274,13 +274,13 @@ root :: TDoc Preambule -> TDoc Document -> TDoc Root
 root x y = TNode RootTag [] [TChild x, TChild y]
 
 preambule :: TDocMaker Preambule
-preambule = TNode PreambuleTag []
+preambule = tNode PreambuleTag []
 
 document :: TDocMaker Document
-document = TNode DocumentTag []
+document = tNode DocumentTag []
 
 title :: TDocMaker Title
-title = TNode TitleTag []
+title = tNode TitleTag []
 
 class ToTDoc a b where
   toTDoc :: a -> TDoc b
@@ -305,96 +305,81 @@ instance ToChildren a b => ToChildren [a] b where
 instance ToChildren () b where
   toChildren () = []
 
-{-
-instance a ~ b => ToChildren [TChildOf a] b where
-  toChildren = id
--}
-
 instance a ~ b => ToChildren (TChildOf a) b where
   toChildren = (:[])
 
 instance Child b a => ToChildren (TDoc a) b where
   toChildren = (:[]) . TChild
 
-{-
-instance Child b a => ToChildren [TDoc a] b where
-  toChildren = map TChild
--}
-
 instance ToChildren [a] b => ToChildren (Writer [a] ()) b where
   toChildren = toChildren . execWriter
 
 instance Child a Leaf => ToChildren FrenchQuote a where toChildren = toChildren . put . leaf
 
-{-
-instance Child b Leaf => ToChildren FrenchQuote b where
-  toChildren = toChildren . leaf
--}
-
-{-
 class FromTDoc tag a where
   fromTDoc :: TDoc tag -> a
 
 instance a ~ b => FromTDoc a (TDoc b) where
   fromTDoc = id
 
-instance (FromTDoc tag a) => FromTDoc tag (Writer [a] ()) where
-  fromTDoc x = tell [fromTDoc x]
--}
+instance Child b a => FromTDoc a (TChildOf b) where
+  fromTDoc = TChild
 
-instance Monoid m => Monoid (Writer m ()) where
-  mempty = return ()
-  a `mappend` b = mappend `fmap` a `ap` b
+instance (FromTDoc tag a) => FromTDoc tag [a] where
+  fromTDoc = (:[]) . fromTDoc
 
-infixr 0 <<
-infixr 0 ^<<
-infixr 0 <<^
+instance (FromTDoc tag a, Monoid a, b ~ ()) => FromTDoc tag (Writer a b) where
+  fromTDoc = tell . fromTDoc
 
-(<<) :: (Child c a, ToChildren b a) => TDocMaker a -> b -> PutM (TChildOf c)
-(<<) f = put . f . toChildren
+infixr 7 <<
+infixr 2 +++
 
-(^<<) :: (ToChildren b a) => TDocMaker a -> b -> TDoc a
-(^<<) f = f . toChildren
+(+++) :: (ToChildren a tag, ToChildren b tag) => a -> b -> [TChildOf tag]
+(+++) a b = toChildren a <> toChildren b
 
-(<<^) :: (Child b a) => TDocMaker a -> [TChildOf a] -> PutM (TChildOf b)
-(<<^) f = put . f
+(<<) :: (Child b a) => (c -> TDoc a) -> c -> PutM (TChildOf b)
+(<<) f = put . f
 
-put :: Child fatherTag currentTag => TDoc currentTag -> PutM (TChildOf fatherTag)
-put = tell . (:[]) . TChild
+put :: ToChildren children fatherTag => children -> PutM (TChildOf fatherTag)
+put = tell . toChildren
+
+tNode   :: ToChildren a fatherTag => Tag fatherTag -> [AttributeOf fatherTag] ->
+           a -> TDoc fatherTag
+tNode tag attrs children = TNode tag attrs (toChildren children)
 
 section :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Section
-section t = TNode (SectionTag (toTDoc t :: TDoc a)) []
+section t = tNode (SectionTag (toTDoc t :: TDoc a)) []
 
 subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Subsection
-subsection t = TNode (SubsectionTag (toTDoc t :: TDoc a)) []
+subsection t = tNode (SubsectionTag (toTDoc t :: TDoc a)) []
 
 div :: AttributesOf Div -> TDocMaker Div
-div = TNode DivTag
+div eta = tNode DivTag eta
 
 ulist :: TDocMaker UList
-ulist = TNode UListTag []
+ulist = tNode UListTag []
 
 item :: TDocMaker Item
-item = TNode ItemTag []
+item = tNode ItemTag []
 
 table :: TDocMaker Table
-table = TNode TableTag []
+table = tNode TableTag []
 
 col :: TDocMaker Col
-col = TNode ColTag []
+col = tNode ColTag []
 
 hcol :: TDocMaker HCol
-hcol = TNode HColTag []
+hcol = tNode HColTag []
 
 row :: TDocMaker Row
-row = TNode RowTag []
+row = tNode RowTag []
 
 -- since their is no 'instance Child Leaf X'
 -- one cannot build a 'TNode attrs [x] :: TDoc Leaf'
 -- but one can build a 'TNode attrs [] :: TDoc Leaf' 
 
 paragraph :: TDocMaker Paragraph
-paragraph = TNode ParagraphTag []
+paragraph = tNode ParagraphTag []
 
 p :: TDocMaker Paragraph
 p = paragraph
@@ -406,40 +391,40 @@ rawHtml :: Html -> TDoc RawHtml
 rawHtml h = TNode (RawHtmlTag h) [] []
 
 spanDoc :: TDocMaker Span
-spanDoc = TNode SpanTag []
+spanDoc = tNode SpanTag []
 
 strong :: TDocMaker Span
-strong = TNode SpanTag [classAttr "strong"]
+strong = tNode SpanTag [classAttr "strong"]
 
 small :: TDocMaker Span
-small = TNode SpanTag [classAttr "small"]
+small = tNode SpanTag [classAttr "small"]
 
 big :: TDocMaker Span
-big = TNode SpanTag [classAttr "big"]
+big = tNode SpanTag [classAttr "big"]
 
 italics :: TDocMaker Span
-italics = TNode SpanTag [classAttr "italics"]
+italics = tNode SpanTag [classAttr "italics"]
 
 sub :: TDocMaker Span
-sub = TNode SpanTag [classAttr "sub"]
+sub = tNode SpanTag [classAttr "sub"]
 
 sup :: TDocMaker Span
-sup = TNode SpanTag [classAttr "sup"]
+sup = tNode SpanTag [classAttr "sup"]
 
 teletype :: TDocMaker Span
-teletype = TNode SpanTag [classAttr "teletype"]
+teletype = tNode SpanTag [classAttr "teletype"]
 
 bold :: TDocMaker Span
-bold = TNode SpanTag [classAttr "bold"]
+bold = tNode SpanTag [classAttr "bold"]
 
-br :: TDoc Br
-br = TNode BrTag [] []
+br :: FromTDoc Br a => a
+br = fromTDoc $ TNode BrTag [] []
 
-hr :: TDoc Hr
-hr = TNode HrTag [] []
+hr :: FromTDoc Hr a => a
+hr = fromTDoc $ TNode HrTag [] []
 
 hlink :: String -> TDocMaker HLink
-hlink url = TNode (HLinkTag (Url url)) []
+hlink url = tNode (HLinkTag (Url url)) []
 
 style :: forall a. IsAttributeOf Style a => String -> AttributeOf a
 style = TAttr StyleTag . Style
@@ -516,10 +501,9 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f SrcTag        = error "impossible"
         f WidthTag      = error "impossible"
         f HeightTag     = error "impossible"
-        -- f UrlTag        = error "impossible"
 
         heading :: Child Span a => (Html -> Html) -> TDoc a -> Html
-        heading hN child = hN {-X.! map commonAttr attrs-} X.<< child +++ children
+        heading hN child = hN {-X.! map commonAttr attrs-} X.<< child X.+++ children
 
         genSpan :: nodeTag ~ Span => Maybe (String, AttributesOf nodeTag) -> Html
         genSpan (Just ("strong", attrs')) = X.strong X.! map commonAttr attrs' X.<< children
@@ -557,7 +541,7 @@ renderTDocHtml (TLeaf tag content) = f tag
 
 renderTDocHtml (TConcat tag child1 child2) = f tag
   where f :: Tag nodeTag -> Html
-        f RootTag = renderTDocHtml child1 +++ renderTDocHtml child2
+        f RootTag = renderTDocHtml child1 X.+++ renderTDocHtml child2
         f _       = error "impossible"
 -}
 
@@ -566,7 +550,7 @@ ex = putStr
      $ X.prettyHtml
      $ toHtml
      $ root
-        (preambule ^<< title << FrQ "t")
+        (preambule $ title << FrQ "t")
         $ document $ toChildren $ do
             section (FrQ "s1") << do
               subsection (FrQ "ss1") << do
@@ -574,15 +558,20 @@ ex = putStr
                 ulist << do
                   item << paragraph << FrQ "a"
                   item << paragraph << do
-                    FrQ "b"
+                    put $ FrQ "b"
                 paragraph << FrQ "p1"
             section (FrQ "s2") << do
               subsection (FrQ "ss2") << do
                 paragraph << do
-                  FrQ "p2"
+                  put $ FrQ "p2a"
+                  br
+                  put $ FrQ "p2b"
                 paragraph << map FrQ ["p3a", "p3b"]
-                paragraph << leaf $ FrQ "p4"
+                hr
+                paragraph << leaf (FrQ "p4")
+                put $ paragraph $ map FrQ ["p5a", "p5b"]
             section (FrQ "s3") << ()
+            hr
             section (FrQ "s4") << subsection (FrQ "ss4") << paragraph << FrQ "p5"
 
 --end
