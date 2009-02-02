@@ -510,6 +510,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         commonAttr :: IsNode a => AttributeOf a -> HtmlAttr
         commonAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
         commonAttr (TAttr StyleTag (Style s)) = X.thestyle s
+        commonAttr _ = error "commonAttr: bug"
 
         hlinkAttr :: AttributeOf HLink -> HtmlAttr
         hlinkAttr = undefined
@@ -521,6 +522,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         imageAttr (TAttr SrcTag (Src a))       = X.src a
         imageAttr (TAttr WidthTag (Width w))   = X.width $ show w
         imageAttr (TAttr HeightTag (Height h)) = X.height $ show h
+        imageAttr _ = error "imageAttr: bug"
 
 {-
 renderTDocHtml (TLeaf tag content) = f tag
