@@ -4,7 +4,7 @@
  UndecidableInstances
 
    #-}
-module TDoc where
+module Text.TDoc where
 
 import qualified Text.XHtml.Strict as X
 import Text.XHtml.Strict (HTML, Html, HtmlAttr, (+++), toHtml)
