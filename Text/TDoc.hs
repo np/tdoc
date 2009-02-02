@@ -243,6 +243,10 @@ data TDoc tag where
 data TChildOf tag where
   TChild :: Child fatherTag childTag => TDoc childTag -> TChildOf fatherTag
 
+type PutM a = Writer [a] ()
+
+type TDocMaker a = [TChildOf a] -> TDoc a
+
 data AttributeOf nodeTag where
   TAttr :: IsAttributeOf attrTag nodeTag => Tag attrTag -> attrTag -> AttributeOf nodeTag
 
@@ -269,13 +273,13 @@ instance AddAttrs b c => AddAttrs (a -> b) c where
 root :: TDoc Preambule -> TDoc Document -> TDoc Root
 root x y = TNode RootTag [] [TChild x, TChild y]
 
-preambule :: TGenDoc1 Preambule
+preambule :: TDocMaker Preambule
 preambule = TNode PreambuleTag []
 
-document :: TGenDoc1 Document
+document :: TDocMaker Document
 document = TNode DocumentTag []
 
-title :: TGenDoc1 Title
+title :: TDocMaker Title
 title = TNode TitleTag []
 
 class ToTDoc a b where
@@ -338,63 +342,61 @@ instance (FromTDoc tag a) => FromTDoc tag (Writer [a] ()) where
   fromTDoc x = tell [fromTDoc x]
 -}
 
-type TGen a = Writer [a] ()
-type TGenChildrenOf a = TGen (TChildOf a)
-type TGenTDoc a = forall b. Child b a => TGenChildrenOf b
-type TGenDoc father = forall grandfather a. (Child grandfather father, ToChildren a father) => a -> TGenChildrenOf grandfather
-type TGenDoc1 a = [TChildOf a] -> TDoc a
+instance Monoid m => Monoid (Writer m ()) where
+  mempty = return ()
+  a `mappend` b = mappend `fmap` a `ap` b
 
 infixr 0 <<
 infixr 0 ^<<
 infixr 0 <<^
 
-(<<) :: (Child c a, ToChildren b a) => TGenDoc1 a -> b -> TGenChildrenOf c
+(<<) :: (Child c a, ToChildren b a) => TDocMaker a -> b -> PutM (TChildOf c)
 (<<) f = put . f . toChildren
 
-(^<<) :: (ToChildren b a) => TGenDoc1 a -> b -> TDoc a
+(^<<) :: (ToChildren b a) => TDocMaker a -> b -> TDoc a
 (^<<) f = f . toChildren
 
-(<<^) :: (Child b a) => TGenDoc1 a -> [TChildOf a] -> TGenChildrenOf b
+(<<^) :: (Child b a) => TDocMaker a -> [TChildOf a] -> PutM (TChildOf b)
 (<<^) f = put . f
 
-put :: Child fatherTag currentTag => TDoc currentTag -> TGenChildrenOf fatherTag
+put :: Child fatherTag currentTag => TDoc currentTag -> PutM (TChildOf fatherTag)
 put = tell . (:[]) . TChild
 
-section :: forall a b. (Child Span a, ToTDoc b a) => b -> TGenDoc1 Section
+section :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Section
 section t = TNode (SectionTag (toTDoc t :: TDoc a)) []
 
-subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TGenDoc1 Subsection
+subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Subsection
 subsection t = TNode (SubsectionTag (toTDoc t :: TDoc a)) []
 
-div :: AttributesOf Div -> TGenDoc1 Div
+div :: AttributesOf Div -> TDocMaker Div
 div = TNode DivTag
 
-ulist :: TGenDoc1 UList
+ulist :: TDocMaker UList
 ulist = TNode UListTag []
 
-item :: TGenDoc1 Item
+item :: TDocMaker Item
 item = TNode ItemTag []
 
-table :: TGenDoc1 Table
+table :: TDocMaker Table
 table = TNode TableTag []
 
-col :: TGenDoc1 Col
+col :: TDocMaker Col
 col = TNode ColTag []
 
-hcol :: TGenDoc1 HCol
+hcol :: TDocMaker HCol
 hcol = TNode HColTag []
 
-row :: TGenDoc1 Row
+row :: TDocMaker Row
 row = TNode RowTag []
 
 -- since their is no 'instance Child Leaf X'
 -- one cannot build a 'TNode attrs [x] :: TDoc Leaf'
 -- but one can build a 'TNode attrs [] :: TDoc Leaf' 
 
-paragraph :: TGenDoc1 Paragraph
+paragraph :: TDocMaker Paragraph
 paragraph = TNode ParagraphTag []
 
-p :: TGenDoc1 Paragraph
+p :: TDocMaker Paragraph
 p = paragraph
 
 leaf :: FrenchQuote -> TDoc Leaf
@@ -403,13 +405,31 @@ leaf c = TNode LeafTag [content c] []
 rawHtml :: Html -> TDoc RawHtml
 rawHtml h = TNode (RawHtmlTag h) [] []
 
-spanDoc :: TGenDoc1 Span
+spanDoc :: TDocMaker Span
 spanDoc = TNode SpanTag []
 
-strong :: TGenDoc1 Span
+strong :: TDocMaker Span
 strong = TNode SpanTag [classAttr "strong"]
 
-bold :: TGenDoc1 Span
+small :: TDocMaker Span
+small = TNode SpanTag [classAttr "small"]
+
+big :: TDocMaker Span
+big = TNode SpanTag [classAttr "big"]
+
+italics :: TDocMaker Span
+italics = TNode SpanTag [classAttr "italics"]
+
+sub :: TDocMaker Span
+sub = TNode SpanTag [classAttr "sub"]
+
+sup :: TDocMaker Span
+sup = TNode SpanTag [classAttr "sup"]
+
+teletype :: TDocMaker Span
+teletype = TNode SpanTag [classAttr "teletype"]
+
+bold :: TDocMaker Span
 bold = TNode SpanTag [classAttr "bold"]
 
 br :: TDoc Br
@@ -418,7 +438,7 @@ br = TNode BrTag [] []
 hr :: TDoc Hr
 hr = TNode HrTag [] []
 
-hlink :: String -> TGenDoc1 HLink
+hlink :: String -> TDocMaker HLink
 hlink url = TNode (HLinkTag (Url url)) []
 
 style :: forall a. IsAttributeOf Style a => String -> AttributeOf a
@@ -503,6 +523,12 @@ renderTDocHtml (TNode tag attrs children) = f tag
 
         genSpan :: nodeTag ~ Span => Maybe (String, AttributesOf nodeTag) -> Html
         genSpan (Just ("strong", attrs')) = X.strong X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("italics", attrs')) = X.italics X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("teletype", attrs')) = X.tt X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("small", attrs')) = X.small X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("big", attrs')) = X.big X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("sub", attrs')) = X.sub X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("sup", attrs')) = X.sup X.! map commonAttr attrs' X.<< children
         genSpan (Just ("bold", attrs')) = X.bold X.! map commonAttr attrs' X.<< children
         genSpan _  | null attrs = toHtml children
                    | otherwise  = X.thespan X.! map commonAttr attrs X.<< children
