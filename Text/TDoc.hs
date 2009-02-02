@@ -23,14 +23,9 @@ import Control.Exception (assert)
 
 TODO:
 
-- some attributes are mandatory (href of <a>, content of <leaf>), how to handle this ?
+- some attributes are mandatory, how to handle this ?
 
 -}
-
-newtype FrenchQuote = FrQ { frQ :: String }
-
-instance HTML FrenchQuote where
-  toHtml = toHtml . frQ
 
 -- this class allow to close some type-classes
 -- class HiddenClass a
@@ -52,7 +47,6 @@ data Item
 data Paragraph
 data Span
 data HLink
-data Leaf
 data Title
 data Image
 data Br
@@ -63,7 +57,7 @@ data Row
 data Col
 data HCol
 data Div
-newtype Content = Content { getContent :: FrenchQuote }
+newtype Leaf = Leaf String
 newtype Style = Style { getStyle :: String } -- put something more typeful
 newtype Url = Url { getUrl :: String }
 newtype Alt = Alt { getAlt :: String }
@@ -91,7 +85,7 @@ data Tag tag where
   ItemTag       :: Tag Item
   ParagraphTag  :: Tag Paragraph
   SpanTag       :: Tag Span
-  LeafTag       :: Tag Leaf
+  LeafTag       :: String -> Tag Leaf
   HLinkTag      :: Url -> Tag HLink
   TitleTag      :: Tag Title
   ImageTag      :: Tag Image
@@ -104,7 +98,6 @@ data Tag tag where
   HColTag       :: Tag HCol
   DivTag        :: Tag Div
   
-  ContentTag    :: Tag Content
   StyleTag      :: Tag Style
   AltTag        :: Tag Alt
   SrcTag        :: Tag Src
@@ -219,7 +212,6 @@ instance Child Table Row
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
-instance IsAttribute Content
 -- instance IsAttribute Url
 instance IsAttribute Alt
 instance IsAttribute Src
@@ -230,7 +222,6 @@ instance IsAttribute ClassAttr
 
 instance IsNode a => IsAttributeOf ClassAttr a
 instance IsNode n => IsAttributeOf Style n
-instance IsAttributeOf Content Leaf
 instance IsAttributeOf Alt Image
 instance IsAttributeOf Src Image
 instance IsAttributeOf Height Image
@@ -270,28 +261,11 @@ instance AddAttrs b c => AddAttrs (a -> b) c where
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
 
-root :: TDoc Preambule -> TDoc Document -> TDoc Root
-root x y = TNode RootTag [] [TChild x, TChild y]
-
-preambule :: TDocMaker Preambule
-preambule = tNode PreambuleTag []
-
-document :: TDocMaker Document
-document = tNode DocumentTag []
-
-title :: TDocMaker Title
-title = tNode TitleTag []
-
 class ToTDoc a b where
   toTDoc :: a -> TDoc b
 
-{-
-instance Child b Leaf => ToTDoc FrenchQuote b where
-  toTDoc = leaf
--}
-instance a ~ Leaf => ToTDoc FrenchQuote a where toTDoc = leaf
--- instance ToTDoc FrenchQuote Span where toTDoc = spanDoc . (:[]) . TChild . leaf
--- instance ToTDoc FrenchQuote Paragraph where toTDoc = leaf
+instance (b ~ Char, a ~ Leaf) => ToTDoc [b] a where
+  toTDoc = string
 
 instance a ~ b => ToTDoc (TDoc a) b where
   toTDoc = id
@@ -311,10 +285,11 @@ instance a ~ b => ToChildren (TChildOf a) b where
 instance Child b a => ToChildren (TDoc a) b where
   toChildren = (:[]) . TChild
 
-instance ToChildren [a] b => ToChildren (Writer [a] ()) b where
+instance (ToChildren [a] b, w ~ ()) => ToChildren (Writer [a] w) b where
   toChildren = toChildren . execWriter
 
-instance Child a Leaf => ToChildren FrenchQuote a where toChildren = toChildren . put . leaf
+instance Child a Leaf => ToChildren Char a where
+  toChildren = toChildren . char
 
 class FromTDoc tag a where
   fromTDoc :: TDoc tag -> a
@@ -346,6 +321,18 @@ put = tell . toChildren
 tNode   :: ToChildren a fatherTag => Tag fatherTag -> [AttributeOf fatherTag] ->
            a -> TDoc fatherTag
 tNode tag attrs children = TNode tag attrs (toChildren children)
+
+root :: TDoc Preambule -> TDoc Document -> TDoc Root
+root x y = TNode RootTag [] [TChild x, TChild y]
+
+preambule :: TDocMaker Preambule
+preambule = tNode PreambuleTag []
+
+document :: TDocMaker Document
+document = tNode DocumentTag []
+
+title :: TDocMaker Title
+title = tNode TitleTag []
 
 section :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Section
 section t = tNode (SectionTag (toTDoc t :: TDoc a)) []
@@ -384,8 +371,11 @@ paragraph = tNode ParagraphTag []
 p :: TDocMaker Paragraph
 p = paragraph
 
-leaf :: FrenchQuote -> TDoc Leaf
-leaf c = TNode LeafTag [content c] []
+char :: Char -> TDoc Leaf
+char c = TNode (LeafTag [c]) [] []
+
+string :: String -> TDoc Leaf
+string s = TNode (LeafTag s) [] []
 
 rawHtml :: Html -> TDoc RawHtml
 rawHtml h = TNode (RawHtmlTag h) [] []
@@ -432,9 +422,6 @@ style = TAttr StyleTag . Style
 image :: AttributesOf Image -> TDoc Image
 image attrs = TNode ImageTag attrs []
 
-content :: forall a. IsAttributeOf Content a => FrenchQuote -> AttributeOf a
-content = TAttr ContentTag . Content
-
 src :: String -> AttributeOf Image
 src = TAttr SrcTag . Src
 
@@ -456,11 +443,6 @@ instance IsNode a => HTML (TDoc a) where toHtml = renderTDocHtml
 
 instance HTML (TChildOf fatherTag) where
   toHtml (TChild x) = renderTDocHtml x
-
-lookupContent :: IsAttributeOf Content nodeTag => AttributesOf nodeTag -> Maybe FrenchQuote
-lookupContent (TAttr ContentTag (Content t) : _attrs) = Just t
-lookupContent (_ : attrs) = lookupContent attrs
-lookupContent [] = Nothing
 
 lookupClassAttr :: IsAttributeOf ClassAttr nodeTag => AttributesOf nodeTag -> Maybe (String, AttributesOf nodeTag)
 lookupClassAttr (TAttr ClassAttrTag (ClassAttr t) : attrs) = Just (t, attrs)
@@ -484,10 +466,9 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f ColTag        = X.td X.! map commonAttr attrs X.<< children
         f HColTag       = X.th X.! map commonAttr attrs X.<< children
         f RowTag        = X.tr X.! map commonAttr attrs X.<< children
-        f LeafTag       = assert (null children) $ -- since there is no Child instance for Leaf
-                          assert (length attrs == 1) $
-                          let x = lookupContent attrs in
-                          assert (isJust x) (toHtml $ fromJust x)
+        f (LeafTag x)   = assert (null children) $ -- since there is no Child instance for Leaf
+                          assert (null attrs) $
+                          toHtml x
         f SpanTag       = genSpan (lookupClassAttr attrs)
         f (HLinkTag url)= toHtml $ X.hotlink (getUrl url) X.! map hlinkAttr attrs X.<< children
         f ImageTag      = assert (null children) $ X.image X.! map imageAttr attrs
@@ -495,7 +476,6 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f HrTag         = assert (null children) $ X.hr X.! map commonAttr attrs
         f (RawHtmlTag h)= assert (null children) $ assert (null attrs) h
         f ClassAttrTag  = error "impossible"
-        f ContentTag    = error "impossible"
         f AltTag        = error "impossible"
         f StyleTag      = error "impossible"
         f SrcTag        = error "impossible"
@@ -534,44 +514,33 @@ renderTDocHtml (TNode tag attrs children) = f tag
         imageAttr (TAttr HeightTag (Height h)) = X.height $ show h
         imageAttr _ = error "imageAttr: bug"
 
-{-
-renderTDocHtml (TLeaf tag content) = f tag
-  where f :: Tag nodeTag -> Html
-        f ContentTag = toHtml content
-
-renderTDocHtml (TConcat tag child1 child2) = f tag
-  where f :: Tag nodeTag -> Html
-        f RootTag = renderTDocHtml child1 X.+++ renderTDocHtml child2
-        f _       = error "impossible"
--}
-
 ex :: IO ()
 ex = putStr
      $ X.prettyHtml
      $ toHtml
      $ root
-        (preambule $ title << FrQ "t")
+        (preambule $ title "t")
         $ document $ toChildren $ do
-            section (FrQ "s1") << do
-              subsection (FrQ "ss1") << do
-                paragraph << FrQ "p1"
+            section "s1" << do
+              subsection "ss1" << do
+                paragraph << "p1"
                 ulist << do
-                  item << paragraph << FrQ "a"
+                  item << paragraph "a"
                   item << paragraph << do
-                    put $ FrQ "b"
-                paragraph << FrQ "p1"
-            section (FrQ "s2") << do
-              subsection (FrQ "ss2") << do
+                    put $ "b"
+                paragraph << "p1"
+            section "s2" << do
+              subsection "ss2" << do
                 paragraph << do
-                  put $ FrQ "p2a"
+                  put "p2a"
                   br
-                  put $ FrQ "p2b"
-                paragraph << map FrQ ["p3a", "p3b"]
+                  put "p2b"
+                paragraph << ["p3a", "p3b"]
                 hr
-                paragraph << leaf (FrQ "p4")
-                put $ paragraph $ map FrQ ["p5a", "p5b"]
-            section (FrQ "s3") << ()
+                paragraph << string "p4"
+                put $ paragraph $ ["p5a", "p5b"]
+            section "s3" << ()
             hr
-            section (FrQ "s4") << subsection (FrQ "ss4") << paragraph << FrQ "p5"
+            section "s4" << subsection "ss4" << paragraph << "p5"
 
 --end
