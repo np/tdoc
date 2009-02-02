@@ -1,5 +1,9 @@
 {-# LANGUAGE Rank2Types, TypeFamilies, ScopedTypeVariables, GADTs, EmptyDataDecls,
-             MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
+             MultiParamTypeClasses, FlexibleContexts, FlexibleInstances,
+
+ UndecidableInstances
+
+   #-}
 module TDoc where
 
 import qualified Text.XHtml.Strict as X
@@ -12,6 +16,7 @@ import Data.Either
 -}
 import Data.Maybe
 import Control.Monad.Writer hiding (Any)
+import Control.Arrow (second)
 import Control.Exception (assert)
 
 {-
@@ -48,11 +53,10 @@ data Paragraph
 data Span
 data HLink
 data Leaf
-data TitleNode
+data Title
 data Image
 data Br
 data RawHtml
-newtype Title = Title { getTitle :: FrenchQuote }
 newtype Content = Content { getContent :: FrenchQuote }
 newtype Style = Style { getStyle :: String } -- put something more typeful
 newtype Url = Url { getUrl :: String }
@@ -75,20 +79,19 @@ data Tag tag where
   RootTag       :: Tag Root
   PreambuleTag  :: Tag Preambule
   DocumentTag   :: Tag Document
-  SectionTag    :: Tag Section
-  SubsectionTag :: Tag Subsection
+  SectionTag    :: Child Span a => TDoc a -> Tag Section
+  SubsectionTag :: Child Span a => TDoc a -> Tag Subsection
   UListTag      :: Tag UList
   ItemTag       :: Tag Item
   ParagraphTag  :: Tag Paragraph
   SpanTag       :: Tag Span
   LeafTag       :: Tag Leaf
   HLinkTag      :: Url -> Tag HLink
-  TitleNodeTag  :: Tag TitleNode
+  TitleTag      :: Tag Title
   ImageTag      :: Tag Image
   BrTag         :: Tag Br
   RawHtmlTag    :: Html -> Tag RawHtml
   
-  TitleTag      :: Tag Title
   ContentTag    :: Tag Content
   StyleTag      :: Tag Style
   AltTag        :: Tag Alt
@@ -110,7 +113,7 @@ instance IsNode Item
 instance IsNode Span
 instance IsNode Leaf
 instance IsNode HLink
-instance IsNode TitleNode
+instance IsNode Title
 instance IsNode Image
 instance IsNode Br
 instance IsNode RawHtml
@@ -123,8 +126,8 @@ instance Child Document Section
 instance Child Document Paragraph
 instance Child Document Image
 instance Child Document UList
-instance Child Preambule TitleNode
-instance Child TitleNode Leaf
+instance Child Preambule Title
+instance Child Title Leaf
 instance Child Section Subsection
 instance Child Section Paragraph
 instance Child Section Image
@@ -160,7 +163,6 @@ instance Child Image Br
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
-instance IsAttribute Title
 instance IsAttribute Content
 -- instance IsAttribute Url
 instance IsAttribute Alt
@@ -171,16 +173,21 @@ instance IsAttribute Style
 instance IsAttribute ClassAttr
 
 instance IsNode a => IsAttributeOf ClassAttr a
-instance IsAttributeOf Title Section
-instance IsAttributeOf Title Subsection
+instance IsNode n => IsAttributeOf Style n
 instance IsAttributeOf Content Leaf
 instance IsAttributeOf Alt Image
 instance IsAttributeOf Src Image
 instance IsAttributeOf Height Image
 instance IsAttributeOf Width Image
 
-instance IsNode n => IsAttributeOf Style n
 -- instance IsAttributeOf Url HLink
+
+data TDoc tag where
+  TNode   :: Tag fatherTag -> [AttributeOf fatherTag] ->
+             [TChildOf fatherTag] -> TDoc fatherTag
+
+data TChildOf tag where
+  TChild :: Child fatherTag childTag => TDoc childTag -> TChildOf fatherTag
 
 data AttributeOf nodeTag where
   TAttr :: IsAttributeOf attrTag nodeTag => Tag attrTag -> attrTag -> AttributeOf nodeTag
@@ -202,13 +209,6 @@ instance a ~ b => AddAttrs (TDoc a) b where
 instance AddAttrs b c => AddAttrs (a -> b) c where
   f ! attrs = \x -> f x ! attrs
 
-data TDoc tag where
-  TNode   :: Tag fatherTag -> [AttributeOf fatherTag] ->
-             [TChildOf fatherTag] -> TDoc fatherTag
-
-data TChildOf tag where
-  TChild :: Child fatherTag childTag => TDoc childTag -> TChildOf fatherTag
-
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
 
@@ -221,8 +221,22 @@ preambule = TNode PreambuleTag []
 document :: TGenDoc1 Document
 document = TNode DocumentTag []
 
-title :: TGenDoc1 TitleNode
-title = TNode TitleNodeTag []
+title :: TGenDoc1 Title
+title = TNode TitleTag []
+
+class ToTDoc a b where
+  toTDoc :: a -> TDoc b
+
+{-
+instance Child b Leaf => ToTDoc FrenchQuote b where
+  toTDoc = leaf
+-}
+instance a ~ Leaf => ToTDoc FrenchQuote a where toTDoc = leaf
+-- instance ToTDoc FrenchQuote Span where toTDoc = spanDoc . (:[]) . TChild . leaf
+-- instance ToTDoc FrenchQuote Paragraph where toTDoc = leaf
+
+instance a ~ b => ToTDoc (TDoc a) b where
+  toTDoc = id
 
 class ToChildren a father where
   toChildren :: a -> [TChildOf father] 
@@ -256,7 +270,7 @@ instance ToChildren FrenchQuote Paragraph where toChildren = toChildren . put . 
 instance ToChildren FrenchQuote HLink where toChildren = toChildren . put . leaf
 instance ToChildren FrenchQuote Span where toChildren = toChildren . put . leaf
 instance ToChildren FrenchQuote Image where toChildren = toChildren . put . leaf
-instance ToChildren FrenchQuote TitleNode where toChildren = toChildren . put . leaf
+instance ToChildren FrenchQuote Title where toChildren = toChildren . put . leaf
 
 {-
 instance Child b Leaf => ToChildren FrenchQuote b where
@@ -296,11 +310,11 @@ infixr 0 <<^
 put :: Child fatherTag currentTag => TDoc currentTag -> TGenChildrenOf fatherTag
 put = tell . (:[]) . TChild
 
-section :: FrenchQuote -> TGenDoc1 Section
-section t = TNode SectionTag [thetitle t]
+section :: forall a b. (Child Span a, ToTDoc b a) => b -> TGenDoc1 Section
+section t = TNode (SectionTag (toTDoc t :: TDoc a)) []
 
-subsection :: FrenchQuote -> TGenDoc1 Subsection
-subsection t = TNode SubsectionTag [thetitle t]
+subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TGenDoc1 Subsection
+subsection t = TNode (SubsectionTag (toTDoc t :: TDoc a)) []
 
 ulist :: TGenDoc1 UList
 ulist = TNode UListTag []
@@ -324,8 +338,8 @@ leaf c = TNode LeafTag [content c] []
 rawHtml :: Html -> TDoc RawHtml
 rawHtml h = TNode (RawHtmlTag h) [] []
 
-span :: TGenDoc1 Span
-span = TNode SpanTag []
+spanDoc :: TGenDoc1 Span
+spanDoc = TNode SpanTag []
 
 strong :: TGenDoc1 Span
 strong = TNode SpanTag [classAttr "strong"]
@@ -360,9 +374,6 @@ alt = TAttr AltTag . Alt
 classAttr :: IsNode a => String -> AttributeOf a
 classAttr = TAttr ClassAttrTag . ClassAttr
 
-thetitle :: forall a. IsAttributeOf Title a => FrenchQuote -> AttributeOf a
-thetitle = TAttr TitleTag . Title
-
 -- instance HTML (TDoc Root) where toHtml = renderTDocHtml
 
 instance IsNode a => HTML (TDoc a) where toHtml = renderTDocHtml
@@ -373,43 +384,38 @@ instance HTML (TChildOf fatherTag) where
 instance HTML a => HTML (Writer a ()) where
   toHtml = toHtml . execWriter
 
-lookupTitle :: IsAttributeOf Title nodeTag => AttributesOf nodeTag -> Maybe FrenchQuote
-lookupTitle (TAttr TitleTag (Title t) : _attrs) = Just t
-lookupTitle (_ : attrs) = lookupTitle attrs
-lookupTitle [] = Nothing
-
 lookupContent :: IsAttributeOf Content nodeTag => AttributesOf nodeTag -> Maybe FrenchQuote
 lookupContent (TAttr ContentTag (Content t) : _attrs) = Just t
 lookupContent (_ : attrs) = lookupContent attrs
 lookupContent [] = Nothing
 
-lookupClassAttr :: IsAttributeOf ClassAttr nodeTag => AttributesOf nodeTag -> Maybe String
-lookupClassAttr (TAttr ClassAttrTag (ClassAttr t) : _attrs) = Just t
-lookupClassAttr (_ : attrs) = lookupClassAttr attrs
+lookupClassAttr :: IsAttributeOf ClassAttr nodeTag => AttributesOf nodeTag -> Maybe (String, AttributesOf nodeTag)
+lookupClassAttr (TAttr ClassAttrTag (ClassAttr t) : attrs) = Just (t, attrs)
+lookupClassAttr (attr : attrs) = fmap (second (attr:)) $ lookupClassAttr attrs
 lookupClassAttr [] = Nothing
 
 renderTDocHtml :: forall nodeTag . IsNode nodeTag => TDoc nodeTag -> Html
 renderTDocHtml (TNode tag attrs children) = f tag
   where f :: IsNode nodeTag => Tag nodeTag -> Html
         f RootTag       = toHtml children
-        f PreambuleTag  = X.header X.<< children
-        f TitleNodeTag  = X.thetitle X.<< children
-        f DocumentTag   = X.body X.<< children
-        f SectionTag    = heading X.h1
-        f SubsectionTag = heading X.h2
-        f UListTag      = X.ulist X.<< children
-        f ItemTag       = X.li X.<< children
-        f ParagraphTag  = X.p X.<< children
-        f LeafTag       = assert (null children) -- since there is no Child instance for Leaf
-                          (let x = lookupContent attrs in
-                           assert (isJust x) (toHtml $ fromJust x))
+        f PreambuleTag  = X.header X.! map commonAttr attrs X.<< children
+        f TitleTag      = X.thetitle X.! map commonAttr attrs X.<< children
+        f DocumentTag   = X.body X.! map commonAttr attrs X.<< children
+        f (SectionTag x)= heading X.h1 x
+        f (SubsectionTag x) = heading X.h2 x
+        f UListTag      = X.ulist X.! map commonAttr attrs X.<< children
+        f ItemTag       = X.li X.! map commonAttr attrs X.<< children
+        f ParagraphTag  = X.p X.! map commonAttr attrs X.<< children
+        f LeafTag       = assert (null children) $ -- since there is no Child instance for Leaf
+                          assert (length attrs == 1) $
+                          let x = lookupContent attrs in
+                          assert (isJust x) (toHtml $ fromJust x)
         f SpanTag       = genSpan (lookupClassAttr attrs)
         f (HLinkTag url)= toHtml $ X.hotlink (getUrl url) X.! map hlinkAttr attrs X.<< children
         f ImageTag      = assert (null children) $ X.image X.! map imageAttr attrs
-        f BrTag         = assert (null children) X.br
-        f (RawHtmlTag h)= assert (null children) h
+        f BrTag         = assert (null children) $ X.br X.! map commonAttr attrs
+        f (RawHtmlTag h)= assert (null children) $ assert (null attrs) h
         f ClassAttrTag  = error "impossible"
-        f TitleTag      = error "impossible"
         f ContentTag    = error "impossible"
         f AltTag        = error "impossible"
         f StyleTag      = error "impossible"
@@ -418,20 +424,24 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f HeightTag     = error "impossible"
         -- f UrlTag        = error "impossible"
 
-        heading :: IsAttributeOf Title nodeTag => (Html -> Html) -> Html
-        heading hN = hN X.<< lookupTitle attrs +++ children
+        heading :: Child Span a => (Html -> Html) -> TDoc a -> Html
+        heading hN child = hN {-X.! map commonAttr attrs-} X.<< child +++ children
 
-        genSpan :: nodeTag ~ Span => Maybe String -> Html
-        genSpan (Just "strong") = X.strong X.! map spanAttr attrs X.<< children
-        genSpan _               = X.thespan X.! map spanAttr attrs X.<< children
+        genSpan :: nodeTag ~ Span => Maybe (String, AttributesOf nodeTag) -> Html
+        genSpan (Just ("strong", attrs')) = X.strong X.! map commonAttr attrs' X.<< children
+        genSpan _  | null attrs = toHtml children
+                   | otherwise  = X.thespan X.! map commonAttr attrs X.<< children
 
-        spanAttr :: AttributeOf Span -> HtmlAttr
-        spanAttr (TAttr StyleTag (Style s)) = X.thestyle s
+        commonAttr :: IsNode a => AttributeOf a -> HtmlAttr
+        commonAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
+        commonAttr (TAttr StyleTag (Style s)) = X.thestyle s
 
         hlinkAttr :: AttributeOf HLink -> HtmlAttr
         hlinkAttr = undefined
 
         imageAttr :: AttributeOf Image -> HtmlAttr
+        imageAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
+        imageAttr (TAttr StyleTag (Style x))   = X.thestyle x
         imageAttr (TAttr AltTag (Alt a))       = X.alt a
         imageAttr (TAttr SrcTag (Src a))       = X.src a
         imageAttr (TAttr WidthTag (Width w))   = X.width $ show w
