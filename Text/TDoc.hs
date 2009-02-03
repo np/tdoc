@@ -256,7 +256,7 @@ instance a ~ b => AddAttrs (TDoc a) b where
   (TNode tag attrs children) ! attrs' = TNode tag (attrs++attrs') children
 
 instance AddAttrs b c => AddAttrs (a -> b) c where
-  f ! attrs = \x -> f x ! attrs
+  (f ! attrs) x = f x ! attrs
 
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
@@ -310,20 +310,23 @@ infixr 7 <<
 infixr 2 +++
 
 (+++) :: (ToChildren a tag, ToChildren b tag) => a -> b -> [TChildOf tag]
-(+++) a b = toChildren a <> toChildren b
+a +++ b = toChildren a <> toChildren b
 
+-- | This operator is an infix sugar for 'put'
+-- @paragraph << do ...@ is equal to @put $ paragraph $ do ...@.
 (<<) :: (Child b a) => (c -> TDoc a) -> c -> PutM (TChildOf b)
 (<<) f = put . f
 
 put :: ToChildren children fatherTag => children -> PutM (TChildOf fatherTag)
 put = tell . toChildren
 
-tNode   :: ToChildren a fatherTag => Tag fatherTag -> [AttributeOf fatherTag] ->
-           a -> TDoc fatherTag
-tNode tag attrs children = TNode tag attrs (toChildren children)
+tNode :: ToChildren a fatherTag => Tag fatherTag -> [AttributeOf fatherTag] ->
+         a -> TDoc fatherTag
+tNode tag attrs = TNode tag attrs . toChildren
 
-root :: TDoc Preambule -> TDoc Document -> TDoc Root
-root x y = TNode RootTag [] [TChild x, TChild y]
+root :: (ToTDoc preambule Preambule, ToTDoc doc Document) => preambule -> doc -> TDoc Root
+root x y = TNode RootTag [] [ TChild (toTDoc x :: TDoc Preambule)
+                            , TChild (toTDoc y :: TDoc Document) ]
 
 preambule :: TDocMaker Preambule
 preambule = tNode PreambuleTag []
@@ -520,16 +523,17 @@ ex = putStr
      $ toHtml
      $ root
         (preambule $ title "t")
-        $ document $ toChildren $ do
-            section "s1" << do
+        $ document $ do
+            section "s1" <<
               subsection "ss1" << do
                 paragraph << "p1"
                 ulist << do
                   item << paragraph "a"
                   item << paragraph << do
-                    put $ "b"
+                    put "b"
+                    put "c"
                 paragraph << "p1"
-            section "s2" << do
+            section "s2" <<
               subsection "ss2" << do
                 paragraph << do
                   put "p2a"
@@ -538,7 +542,7 @@ ex = putStr
                 paragraph << ["p3a", "p3b"]
                 hr
                 paragraph << string "p4"
-                put $ paragraph $ ["p5a", "p5b"]
+                put $ paragraph ["p5a", "p5b"]
             section "s3" << ()
             hr
             section "s4" << subsection "ss4" << paragraph << "p5"
