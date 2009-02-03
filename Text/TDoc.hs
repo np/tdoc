@@ -349,6 +349,12 @@ div eta = tNode DivTag eta
 ulist :: TDocMaker UList
 ulist = tNode UListTag []
 
+-- | 'ulistQ' is a quick version of 'ulist' when all children
+-- of a UList are homogeneous one can factor the building of
+-- the Item nodes.
+ulistQ :: Child Item a => [TDoc a] -> TDoc UList
+ulistQ = tNode UListTag [] . map item
+
 item :: TDocMaker Item
 item = tNode ItemTag []
 
