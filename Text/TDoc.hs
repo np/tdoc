@@ -416,11 +416,11 @@ teletype = tNode SpanTag [classAttr "teletype"]
 bold :: TDocMaker Span
 bold = tNode SpanTag [classAttr "bold"]
 
-br :: FromTDoc Br a => a
-br = fromTDoc $ TNode BrTag [] []
+br :: TDoc Br
+br = TNode BrTag [] []
 
-hr :: FromTDoc Hr a => a
-hr = fromTDoc $ TNode HrTag [] []
+hr :: TDoc Hr
+hr = TNode HrTag [] []
 
 hlink :: String -> TDocMaker HLink
 hlink url = tNode (HLinkTag (Url url)) []
@@ -543,14 +543,15 @@ ex = putStr
               subsection "ss2" << do
                 paragraph << do
                   put "p2a"
-                  br
+                  put br
                   put "p2b"
                 paragraph << ["p3a", "p3b"]
-                hr
+                put hr
                 paragraph << string "p4"
                 put $ paragraph ["p5a", "p5b"]
             section "s3" << ()
-            hr
+            put hr
             section "s4" << subsection "ss4" << paragraph << "p5"
+            section "s5" << [hr,hr]
 
 --end
