@@ -1,33 +1,23 @@
-{-# LANGUAGE TemplateHaskell #-}
-module Text.TDoc.QQ (expandingQQ, e) where
+{-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
+module Text.TDoc.QQ (frQQ, frTop, frAntiq) where
 
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
-import Text.TDoc (spanDoc, toChildren)
-import Control.Arrow
+import Text.TDoc (spanDoc, TDocMaker, Span, ToChildren(..), TChildOf(..))
 import Data.Char (isSpace)
+import Data.Monoid
+
+frTop :: TDocMaker Span
+frTop = spanDoc
+
+frAntiq :: ToChildren a father => a -> [TChildOf father] 
+frAntiq = toChildren
 
 expandingQQExpr :: String -> TH.ExpQ
-expandingQQExpr = TH.listE . go "" . stripIndents
+expandingQQExpr = chunk . stripIndents
   where
-    go cur ('{':xs) = chunk cur $ antiq ys $ go "" zs
-                        where (ys, zs) = cut (0::Int) xs
-    go cur (x:xs)   = go (x:cur) xs
-    go cur []       = chunk cur []
-
-    chunk x xs | null x    = xs
-               | otherwise = mkToChildren (TH.stringE (reverse x)) : xs
-
-    antiq x xs | null x    = xs
-               | otherwise = mkToChildren (TH.varE (TH.mkName x)) : xs
-
-    mkToChildren = (TH.varE 'toChildren `TH.appE`)
-
-    cut lvl ('{':xs) = first ('{':) $ cut (lvl+1) xs
-    cut 0   ('}':xs) = ([], xs)
-    cut lvl ('}':xs) = first ('}':) $ cut (lvl-1) xs
-    cut lvl (x:xs)   = first (x:)   $ cut lvl xs
-    cut _   []       = error "missing '}', unexpected end of quotation"
+    chunk x | null x    = TH.varE 'mempty
+            | otherwise = TH.varE 'toChildren `TH.appE` TH.stringE x
 
 stripIndents :: String -> String
 stripIndents = go
@@ -35,7 +25,6 @@ stripIndents = go
                   | otherwise = x:go xs
         go                 "" = ""
 
-e, expandingQQ :: QuasiQuoter
-expandingQQ = QuasiQuoter (\str->TH.varE 'spanDoc `TH.appE` expandingQQExpr str)
-                          (error "ExpandingQQ: not available in patterns")
-e = expandingQQ
+frQQ :: QuasiQuoter
+frQQ = QuasiQuoter expandingQQExpr
+                   (error "Text.TDoc.QQ.frQQ: not available in patterns")
