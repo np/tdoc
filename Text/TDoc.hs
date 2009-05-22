@@ -16,6 +16,7 @@ import Data.Either
 -}
 import Data.Maybe
 import Control.Monad.Writer hiding (Any)
+import Control.Monad.Identity
 import Control.Arrow (second)
 import Control.Exception (assert)
 
@@ -285,7 +286,7 @@ instance a ~ b => ToChildren (TChildOf a) b where
 instance Child b a => ToChildren (TDoc a) b where
   toChildren = (:[]) . TChild
 
-instance (ToChildren [a] b, w ~ ()) => ToChildren (Writer [a] w) b where
+instance (Monad m, ToChildren [a] b, w ~ (), m ~ Identity) => ToChildren (WriterT [a] m w) b where
   toChildren = toChildren . execWriter
 
 instance Child a Leaf => ToChildren Char a where
@@ -303,7 +304,7 @@ instance Child b a => FromTDoc a (TChildOf b) where
 instance (FromTDoc tag a) => FromTDoc tag [a] where
   fromTDoc = (:[]) . fromTDoc
 
-instance (FromTDoc tag a, Monoid a, b ~ ()) => FromTDoc tag (Writer a b) where
+instance (Monad m, FromTDoc tag a, Monoid a, b ~ ()) => FromTDoc tag (WriterT a m b) where
   fromTDoc = tell . fromTDoc
 
 infixr 7 <<
