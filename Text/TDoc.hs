@@ -75,6 +75,10 @@ instance Show Size where
   show (Cm x) = show x ++ "cm"
   show (Em x) = show x ++ "em"
 
+toPixels :: Size -> Int
+toPixels (Px x) = x
+toPixels _ = error "toPixels: wrong unit"
+
 data Tag tag where
   -- AnyTag        :: Tag Any
   RootTag       :: Tag Root
@@ -520,8 +524,8 @@ renderTDocHtml (TNode tag attrs children) = f tag
         imageAttr (TAttr StyleTag (Style x))   = X.thestyle x
         imageAttr (TAttr AltTag (Alt a))       = X.alt a
         imageAttr (TAttr SrcTag (Src a))       = X.src a
-        imageAttr (TAttr WidthTag (Width w))   = X.width $ show w
-        imageAttr (TAttr HeightTag (Height h)) = X.height $ show h
+        imageAttr (TAttr WidthTag (Width w))   = X.width . show . toPixels $ w
+        imageAttr (TAttr HeightTag (Height h)) = X.height . show . toPixels $ h
         imageAttr _ = error "imageAttr: bug"
 
 ex :: IO ()
