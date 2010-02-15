@@ -81,8 +81,8 @@ data FormMethod = GET
 data Size = Px Int
           | Cm Int
           | Em Int
-newtype Width = Width { getWidth :: Size }
-newtype Height = Height { getHeight :: Size }
+newtype Width = Width { fromWidth :: Size }
+newtype Height = Height { fromHeight :: Size }
 
 instance Show Size where
   show (Px x) = show x ++ "px"
@@ -562,7 +562,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
                           assert (null attrs) $
                           toHtml x
         f SpanTag       = genSpan (lookupClassAttr attrs)
-        f (HLinkTag url)= toHtml $ X.hotlink (getUrl url) X.! map hlinkAttr attrs X.<< children
+        f (HLinkTag url)= toHtml $ X.hotlink (fromUrl url) X.! map hlinkAttr attrs X.<< children
         f ImageTag      = assert (null children) $ X.image X.! map imageAttr attrs
         f BrTag         = assert (null children) $ X.br X.! map commonAttr attrs
         f HrTag         = assert (null children) $ X.hr X.! map commonAttr attrs
