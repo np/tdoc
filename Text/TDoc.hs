@@ -59,11 +59,11 @@ data Col
 data HCol
 data Div
 newtype Leaf = Leaf String
-newtype Style = Style { getStyle :: String } -- put something more typeful
-newtype Url = Url { getUrl :: String }
-newtype Alt = Alt { getAlt :: String }
-newtype Src = Src { getSrc :: String }
-newtype ClassAttr = ClassAttr { getClassAttr :: String }
+newtype Style = Style { fromStyle :: String } -- put something more typeful
+newtype Url = Url { fromUrl :: String }
+newtype Alt = Alt { fromAlt :: String }
+newtype Src = Src { fromSrc :: String }
+newtype ClassAttr = ClassAttr { fromClassAttr :: String }
 data Size = Px Int
           | Cm Int
           | Em Int
