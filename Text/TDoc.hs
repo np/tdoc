@@ -57,7 +57,7 @@ data Table
 data Row
 data Col
 data HCol
-data Div
+data Div a
 data Label
 data Input
 data Form
@@ -126,7 +126,7 @@ data Tag tag where
   RowTag        :: Tag Row
   ColTag        :: Tag Col
   HColTag       :: Tag HCol
-  DivTag        :: Tag Div
+  DivTag        :: Tag (Div a)
   
   FormTag       :: Tag Form
   InputTag      :: Tag Input
@@ -165,7 +165,7 @@ instance IsNode Table
 instance IsNode Row
 instance IsNode Col
 instance IsNode HCol
-instance IsNode Div
+instance IsNode a => IsNode (Div a)
 instance IsNode Label
 instance IsNode Input
 instance IsNode Form
@@ -183,7 +183,7 @@ instance IsInline RawHtml
 class IsNode a => IsBlock a
 
 instance IsBlock Paragraph
-instance IsBlock Div
+instance IsBlock a => IsBlock (Div a)
 instance IsBlock UList
 instance IsBlock Table
 instance IsBlock RawHtml
@@ -202,7 +202,7 @@ instance IsBlockOrInline Br
 instance IsBlockOrInline Hr
 instance IsBlockOrInline RawHtml
 instance IsBlockOrInline Paragraph
-instance IsBlockOrInline Div
+instance IsBlockOrInline a => IsBlockOrInline (Div a)
 instance IsBlockOrInline UList
 instance IsBlockOrInline Table
 
@@ -219,20 +219,22 @@ instance Child Preambule RawHtml
 instance Child Title Leaf
 instance Child Title RawHtml
 
+instance Child a b => Child (Div a) b
+
 instance Child Document Section
 -- instance IsBlock a => Child Document a
 instance Child Document Paragraph
-instance Child Document Div
 instance Child Document UList
 instance Child Document Table
 instance Child Document RawHtml
 instance Child Document Hr
 instance Child Document Form
+instance Child Document (Div Document)
 
 instance Child Section Subsection
 -- instance IsBlock a => Child Section a
 instance Child Section Paragraph
-instance Child Section Div
+instance Child Section (Div Section)
 instance Child Section UList
 instance Child Section Table
 instance Child Section RawHtml
@@ -251,13 +253,13 @@ instance IsInline a => Child Label a
 
 instance IsBlockOrInline a => Child Item a
 
-instance (Child a Div, Child a b) => Child Div b
 instance Child UList Item
 instance Child Row Col
 instance Child Row HCol
 instance Child Table Row
 instance Child Form Label
 instance Child Form Input
+instance Child Form (Div Form)
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
@@ -411,7 +413,7 @@ input attrs = TNode InputTag attrs []
 label :: AttributesOf Label -> TDocMaker Label
 label eta = tNode LabelTag eta
 
-div :: AttributesOf Div -> TDocMaker Div
+div :: AttributesOf (Div a) -> TDocMaker (Div a)
 div eta = tNode DivTag eta
 
 ulist :: TDocMaker UList
