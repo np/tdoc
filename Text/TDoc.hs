@@ -58,12 +58,26 @@ data Row
 data Col
 data HCol
 data Div
+data Label
+data Input
+data Form
 newtype Leaf = Leaf String
 newtype Style = Style { fromStyle :: String } -- put something more typeful
 newtype Url = Url { fromUrl :: String }
 newtype Alt = Alt { fromAlt :: String }
 newtype Src = Src { fromSrc :: String }
 newtype ClassAttr = ClassAttr { fromClassAttr :: String }
+newtype Name = Name { fromName :: String }
+newtype Value = Value { fromValue :: String }
+newtype Action = Action { fromAction :: String }
+data InputType = TEXT
+               | NUMBER -- check me
+               | SUBMIT
+               | RawInputType String
+data FormMethod = GET
+                | POST
+                | RawFormMethod String
+
 data Size = Px Int
           | Cm Int
           | Em Int
@@ -78,6 +92,17 @@ instance Show Size where
 toPixels :: Size -> Int
 toPixels (Px x) = x
 toPixels _ = error "toPixels: wrong unit"
+
+instance Show FormMethod where
+  show POST               = "post"
+  show GET                = "get"
+  show (RawFormMethod s)  = s
+
+instance Show InputType where
+  show TEXT              = "text"
+  show NUMBER            = "number"
+  show SUBMIT            = "submit"
+  show (RawInputType s)  = s
 
 data Tag tag where
   -- AnyTag        :: Tag Any
@@ -103,12 +128,20 @@ data Tag tag where
   HColTag       :: Tag HCol
   DivTag        :: Tag Div
   
+  FormTag       :: Tag Form
+  InputTag      :: Tag Input
+  LabelTag      :: Tag Label
   StyleTag      :: Tag Style
   AltTag        :: Tag Alt
   SrcTag        :: Tag Src
   WidthTag      :: Tag Width
   HeightTag     :: Tag Height
   ClassAttrTag  :: Tag ClassAttr
+  InputTypeTag  :: Tag InputType
+  NameTag       :: Tag Name
+  ValueTag      :: Tag Value
+  FormMethodTag :: Tag FormMethod
+  ActionTag     :: Tag Action
   -- UrlTag        :: Tag Url
 
 -- instance IsNode Any
@@ -133,6 +166,9 @@ instance IsNode Row
 instance IsNode Col
 instance IsNode HCol
 instance IsNode Div
+instance IsNode Label
+instance IsNode Input
+instance IsNode Form
 
 class IsNode a => IsInline a
 
@@ -152,6 +188,9 @@ instance IsBlock UList
 instance IsBlock Table
 instance IsBlock RawHtml
 instance IsBlock Hr
+instance IsBlock Label
+instance IsBlock Form
+instance IsBlock Input
 
 class IsNode a => IsBlockOrInline a
 
@@ -188,6 +227,7 @@ instance Child Document UList
 instance Child Document Table
 instance Child Document RawHtml
 instance Child Document Hr
+instance Child Document Form
 
 instance Child Section Subsection
 -- instance IsBlock a => Child Section a
@@ -197,6 +237,7 @@ instance Child Section UList
 instance Child Section Table
 instance Child Section RawHtml
 instance Child Section Hr
+instance Child Section Form
 
 instance IsBlock a => Child Subsection a
 
@@ -206,6 +247,7 @@ instance IsBlockOrInline a => Child HCol a
 instance IsInline a => Child Paragraph a
 instance IsInline a => Child Span a
 instance IsInline a => Child HLink a
+instance IsInline a => Child Label a
 
 instance IsBlockOrInline a => Child Item a
 
@@ -214,6 +256,8 @@ instance Child UList Item
 instance Child Row Col
 instance Child Row HCol
 instance Child Table Row
+instance Child Form Label
+instance Child Form Input
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
@@ -224,6 +268,11 @@ instance IsAttribute Height
 instance IsAttribute Width
 instance IsAttribute Style
 instance IsAttribute ClassAttr
+instance IsAttribute Name
+instance IsAttribute Value
+instance IsAttribute Action
+instance IsAttribute InputType
+instance IsAttribute FormMethod
 
 instance IsNode a => IsAttributeOf ClassAttr a
 instance IsNode n => IsAttributeOf Style n
@@ -231,6 +280,11 @@ instance IsAttributeOf Alt Image
 instance IsAttributeOf Src Image
 instance IsAttributeOf Height Image
 instance IsAttributeOf Width Image
+instance IsAttributeOf Name Input
+instance IsAttributeOf Value Input
+instance IsAttributeOf InputType Input
+instance IsAttributeOf Action Form
+instance IsAttributeOf FormMethod Form
 
 data TDoc tag where
   TNode   :: Tag fatherTag -> [AttributeOf fatherTag] ->
@@ -348,6 +402,15 @@ section t = tNode (SectionTag (toTDoc t :: TDoc a)) []
 subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Subsection
 subsection t = tNode (SubsectionTag (toTDoc t :: TDoc a)) []
 
+form :: AttributesOf Form -> TDocMaker Form
+form eta = tNode FormTag eta
+
+input :: AttributesOf Input -> TDoc Input
+input attrs = TNode InputTag attrs []
+
+label :: AttributesOf Label -> TDocMaker Label
+label eta = tNode LabelTag eta
+
 div :: AttributesOf Div -> TDocMaker Div
 div eta = tNode DivTag eta
 
@@ -448,6 +511,21 @@ height = TAttr HeightTag . Height
 alt :: String -> AttributeOf Image
 alt = TAttr AltTag . Alt
 
+value :: IsAttributeOf Value a => String -> AttributeOf a
+value = TAttr ValueTag . Value
+
+name :: IsAttributeOf Name a => String -> AttributeOf a
+name = TAttr NameTag . Name
+
+inputType :: IsAttributeOf InputType a => InputType -> AttributeOf a
+inputType = TAttr InputTypeTag
+
+formMethod :: IsAttributeOf FormMethod a => FormMethod -> AttributeOf a
+formMethod = TAttr FormMethodTag
+
+action :: IsAttributeOf Action a => String -> AttributeOf a
+action = TAttr ActionTag . Action
+
 classAttr :: IsNode a => String -> AttributeOf a
 classAttr = TAttr ClassAttrTag . ClassAttr
 
@@ -489,12 +567,20 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f BrTag         = assert (null children) $ X.br X.! map commonAttr attrs
         f HrTag         = assert (null children) $ X.hr X.! map commonAttr attrs
         f (RawHtmlTag h)= assert (null children) $ assert (null attrs) h
+        f FormTag       = X.form X.! map formAttr attrs X.<< children
+        f LabelTag      = X.label X.! map commonAttr attrs X.<< children
+        f InputTag      = X.input X.! map inputAttr attrs
         f ClassAttrTag  = error "impossible"
         f AltTag        = error "impossible"
         f StyleTag      = error "impossible"
         f SrcTag        = error "impossible"
         f WidthTag      = error "impossible"
         f HeightTag     = error "impossible"
+        f ActionTag     = error "impossible"
+        f NameTag       = error "impossible"
+        f ValueTag      = error "impossible"
+        f FormMethodTag = error "impossible"
+        f InputTypeTag  = error "impossible"
 
         heading :: Child Span a => (Html -> Html) -> TDoc a -> Html
         heading hN child = hN {-X.! map commonAttr attrs-} X.<< child X.+++ children
@@ -518,6 +604,21 @@ renderTDocHtml (TNode tag attrs children) = f tag
 
         hlinkAttr :: AttributeOf HLink -> HtmlAttr
         hlinkAttr = undefined
+
+        inputAttr :: AttributeOf Input -> HtmlAttr
+        inputAttr (TAttr ClassAttrTag (ClassAttr x))  = X.theclass x
+        inputAttr (TAttr StyleTag (Style x))          = X.thestyle x
+        inputAttr (TAttr InputTypeTag it)             = X.thetype . show $ it
+        inputAttr (TAttr NameTag (Name n))            = X.name n
+        inputAttr (TAttr ValueTag (Value n))          = X.value n
+        inputAttr _                                   = error "inputAttr: bug"
+
+        formAttr :: AttributeOf Form -> HtmlAttr
+        formAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
+        formAttr (TAttr StyleTag (Style x))   = X.thestyle x
+        formAttr (TAttr FormMethodTag fm)     = X.method . show $ fm
+        formAttr (TAttr ActionTag (Action a)) = X.action a
+        formAttr _ = error "formAttr: bug"
 
         imageAttr :: AttributeOf Image -> HtmlAttr
         imageAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
