@@ -1,0 +1,19 @@
+name:            tdoc
+cabal-Version:   >=1.2
+version:         0.1
+license:         BSD3
+license-File:    LICENSE
+copyright:       (c) Nicolas Pouillard
+author:          Nicolas Pouillard
+maintainer:      Nicolas Pouillard <nicolas.pouillard@gmail.com>
+--category:
+--synopsis:
+--description:
+stability:       Experimental
+build-type:      Simple
+
+library
+  build-depends:   base>=3.0, containers>=0.1, transformers,
+                   template-haskell, monads-tf, xhtml
+  exposed-modules: Text.TDoc, Text.TDoc.QQ
+  ghc-options:     -Wall
