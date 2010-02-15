@@ -127,10 +127,10 @@ data Tag tag where
   ColTag        :: Tag Col
   HColTag       :: Tag HCol
   DivTag        :: Tag (Div a)
-  
   FormTag       :: Tag Form
   InputTag      :: Tag Input
   LabelTag      :: Tag Label
+
   StyleTag      :: Tag Style
   AltTag        :: Tag Alt
   SrcTag        :: Tag Src
@@ -332,7 +332,7 @@ instance a ~ b => ToTDoc (TDoc a) b where
   toTDoc = id
 
 class ToChildren a father where
-  toChildren :: a -> [TChildOf father] 
+  toChildren :: a -> [TChildOf father]
 
 instance ToChildren a b => ToChildren [a] b where
   toChildren = concatMap toChildren
@@ -442,7 +442,7 @@ row = tNode RowTag []
 
 -- since their is no 'instance Child Leaf X'
 -- one cannot build a 'TNode attrs [x] :: TDoc Leaf'
--- but one can build a 'TNode attrs [] :: TDoc Leaf' 
+-- but one can build a 'TNode attrs [] :: TDoc Leaf'
 
 paragraph :: TDocMaker Paragraph
 paragraph = tNode ParagraphTag []
