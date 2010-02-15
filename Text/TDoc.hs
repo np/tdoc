@@ -1,9 +1,5 @@
 {-# LANGUAGE Rank2Types, TypeFamilies, ScopedTypeVariables, GADTs, EmptyDataDecls,
-             MultiParamTypeClasses, FlexibleContexts, FlexibleInstances,
-
- UndecidableInstances
-
-   #-}
+             MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Text.TDoc where
 
 import qualified Text.XHtml.Strict as X
@@ -349,8 +345,17 @@ instance Child b a => ToChildren (TDoc a) b where
 instance (Monad m, ToChildren [a] b, w ~ (), m ~ Identity) => ToChildren (WriterT [a] m w) b where
   toChildren = toChildren . execWriter
 
-instance Child a Leaf => ToChildren Char a where
-  toChildren = toChildren . char
+class HasLeaves a where
+  charToChildren :: Char -> [TChildOf a]
+
+instance HasLeaves Title      where charToChildren = toChildren . char
+instance HasLeaves Paragraph  where charToChildren = toChildren . char
+instance HasLeaves Span       where charToChildren = toChildren . char
+instance HasLeaves HLink      where charToChildren = toChildren . char
+instance HasLeaves Label      where charToChildren = toChildren . char
+
+instance HasLeaves a => ToChildren Char a where toChildren = charToChildren
+
 
 class FromTDoc tag a where
   fromTDoc :: TDoc tag -> a
