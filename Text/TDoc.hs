@@ -48,7 +48,6 @@ data Title
 data Image
 data Br
 data Hr
-data RawHtml
 data Table
 data Row
 data Col
@@ -117,7 +116,7 @@ data Tag tag where
   ImageTag      :: Tag Image
   BrTag         :: Tag Br
   HrTag         :: Tag Hr
-  RawHtmlTag    :: Html -> Tag RawHtml
+  RawHtmlTag    :: Html -> Tag a
   TableTag      :: Tag Table
   RowTag        :: Tag Row
   ColTag        :: Tag Col
@@ -156,7 +155,6 @@ instance IsNode Title
 instance IsNode Image
 instance IsNode Br
 instance IsNode Hr
-instance IsNode RawHtml
 instance IsNode Table
 instance IsNode Row
 instance IsNode Col
@@ -174,7 +172,6 @@ instance IsInline HLink
 instance IsInline Span
 instance IsInline Br
 instance IsInline Hr
-instance IsInline RawHtml
 
 class IsNode a => IsBlock a
 
@@ -182,7 +179,6 @@ instance IsBlock Paragraph
 instance IsBlock a => IsBlock (Div a)
 instance IsBlock UList
 instance IsBlock Table
-instance IsBlock RawHtml
 instance IsBlock Hr
 instance IsBlock Label
 instance IsBlock Form
@@ -196,24 +192,19 @@ instance IsBlockOrInline HLink
 instance IsBlockOrInline Span
 instance IsBlockOrInline Br
 instance IsBlockOrInline Hr
-instance IsBlockOrInline RawHtml
 instance IsBlockOrInline Paragraph
 instance IsBlockOrInline a => IsBlockOrInline (Div a)
 instance IsBlockOrInline UList
 instance IsBlockOrInline Table
 
 -- instance IsNode a => Child Any a
--- instance IsNode a => Child a RawHtml
 
 instance Child Root Preambule
 instance Child Root Document
-instance Child Root RawHtml
 
 instance Child Preambule Title
-instance Child Preambule RawHtml
 
 instance Child Title Leaf
-instance Child Title RawHtml
 
 instance Child a b => Child (Div a) b
 
@@ -222,7 +213,6 @@ instance Child Document Section
 instance Child Document Paragraph
 instance Child Document UList
 instance Child Document Table
-instance Child Document RawHtml
 instance Child Document Hr
 instance Child Document Form
 instance a ~ Document => Child Document (Div a)
@@ -233,7 +223,6 @@ instance Child Section Paragraph
 instance a ~ Section => Child Section (Div a)
 instance Child Section UList
 instance Child Section Table
-instance Child Section RawHtml
 instance Child Section Hr
 instance Child Section Form
 
@@ -461,7 +450,7 @@ char c = TNode (LeafTag [c]) [] []
 string :: String -> TDoc Leaf
 string s = TNode (LeafTag s) [] []
 
-rawHtml :: Html -> TDoc RawHtml
+rawHtml :: Html -> TDoc a
 rawHtml h = TNode (RawHtmlTag h) [] []
 
 spanDoc :: TDocMaker Span
