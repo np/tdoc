@@ -225,12 +225,12 @@ instance Child Document Table
 instance Child Document RawHtml
 instance Child Document Hr
 instance Child Document Form
-instance Child Document (Div Document)
+instance a ~ Document => Child Document (Div a)
 
 instance Child Section Subsection
 -- instance IsBlock a => Child Section a
 instance Child Section Paragraph
-instance Child Section (Div Section)
+instance a ~ Section => Child Section (Div a)
 instance Child Section UList
 instance Child Section Table
 instance Child Section RawHtml
@@ -255,7 +255,7 @@ instance Child Row HCol
 instance Child Table Row
 instance Child Form Label
 instance Child Form Input
-instance Child Form (Div Form)
+instance Form ~ a => Child Form (Div a)
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
