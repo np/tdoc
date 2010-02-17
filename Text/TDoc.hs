@@ -15,6 +15,10 @@ import Control.Monad.Writer hiding (Any)
 import Control.Monad.Identity
 import Control.Arrow (second)
 import Control.Exception (assert)
+import qualified Data.ByteString.Char8       as S8
+import qualified Data.ByteString.Lazy.Char8  as L8
+import qualified Data.ByteString       as Strict  (ByteString)
+import qualified Data.ByteString.Lazy  as Lazy    (ByteString)
 
 {-
 
@@ -335,15 +339,41 @@ instance (Monad m, ToChildren [a] b, w ~ (), m ~ Identity) => ToChildren (Writer
 
 class HasLeaves a where
   charToChildren :: Char -> [TChildOf a]
+  lazyByteStringToChildren :: Lazy.ByteString -> [TChildOf a]
+  strictByteStringToChildren :: Strict.ByteString -> [TChildOf a]
 
-instance HasLeaves Title      where charToChildren = toChildren . char
-instance HasLeaves Paragraph  where charToChildren = toChildren . char
-instance HasLeaves Span       where charToChildren = toChildren . char
-instance HasLeaves HLink      where charToChildren = toChildren . char
-instance HasLeaves Label      where charToChildren = toChildren . char
+instance HasLeaves Title      where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves Paragraph  where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves Span       where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves HLink      where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves Label      where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves Col        where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves HCol       where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
 
-instance HasLeaves a => ToChildren Char a where toChildren = charToChildren
-
+instance HasLeaves a => ToChildren Char               a where toChildren = charToChildren
+instance HasLeaves a => ToChildren Lazy.ByteString    a where toChildren = lazyByteStringToChildren
+instance HasLeaves a => ToChildren Strict.ByteString  a where toChildren = strictByteStringToChildren
 
 class FromTDoc tag a where
   fromTDoc :: TDoc tag -> a
@@ -451,6 +481,12 @@ string = rawHtml . toHtml
 
 rawHtml :: Html -> TDoc a
 rawHtml h = TNode (RawHtmlTag h) [] []
+
+strictByteString :: Strict.ByteString -> TDoc Leaf
+strictByteString = string . S8.unpack
+
+lazyByteString :: Lazy.ByteString -> TDoc Leaf
+lazyByteString = string . L8.unpack
 
 spanDoc :: TDocMaker Span
 spanDoc = tNode SpanTag []
