@@ -470,8 +470,8 @@ row = tNode RowTag []
 paragraph :: TDocMaker Paragraph
 paragraph = tNode ParagraphTag []
 
-p :: TDocMaker Paragraph
-p = paragraph
+-- p :: TDocMaker Paragraph
+-- p = paragraph
 
 rawHtml :: Html -> TDoc a
 rawHtml h = TNode (RawHtmlTag h) [] []
