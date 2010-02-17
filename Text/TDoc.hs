@@ -473,14 +473,14 @@ paragraph = tNode ParagraphTag []
 p :: TDocMaker Paragraph
 p = paragraph
 
+rawHtml :: Html -> TDoc a
+rawHtml h = TNode (RawHtmlTag h) [] []
+
 char :: Char -> TDoc Leaf
 char = rawHtml . toHtml
 
 string :: String -> TDoc Leaf
 string = rawHtml . toHtml
-
-rawHtml :: Html -> TDoc a
-rawHtml h = TNode (RawHtmlTag h) [] []
 
 strictByteString :: Strict.ByteString -> TDoc Leaf
 strictByteString = string . S8.unpack
