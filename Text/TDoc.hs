@@ -56,7 +56,7 @@ data Div a
 data Label
 data Input
 data Form
-newtype Leaf = Leaf String
+data Leaf
 newtype Style = Style { fromStyle :: String } -- put something more typeful
 newtype Url = Url { fromUrl :: String }
 newtype Alt = Alt { fromAlt :: String }
@@ -110,7 +110,6 @@ data Tag tag where
   ItemTag       :: Tag Item
   ParagraphTag  :: Tag Paragraph
   SpanTag       :: Tag Span
-  LeafTag       :: String -> Tag Leaf
   HLinkTag      :: Url -> Tag HLink
   TitleTag      :: Tag Title
   ImageTag      :: Tag Image
@@ -445,10 +444,10 @@ p :: TDocMaker Paragraph
 p = paragraph
 
 char :: Char -> TDoc Leaf
-char c = TNode (LeafTag [c]) [] []
+char = rawHtml . toHtml
 
 string :: String -> TDoc Leaf
-string s = TNode (LeafTag s) [] []
+string = rawHtml . toHtml
 
 rawHtml :: Html -> TDoc a
 rawHtml h = TNode (RawHtmlTag h) [] []
@@ -554,9 +553,6 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f ColTag        = X.td X.! map commonAttr attrs X.<< children
         f HColTag       = X.th X.! map commonAttr attrs X.<< children
         f RowTag        = X.tr X.! map commonAttr attrs X.<< children
-        f (LeafTag x)   = assert (null children) $ -- since there is no Child instance for Leaf
-                          assert (null attrs) $
-                          toHtml x
         f SpanTag       = genSpan (lookupClassAttr attrs)
         f (HLinkTag url)= toHtml $ X.hotlink (fromUrl url) X.! map hlinkAttr attrs X.<< children
         f ImageTag      = assert (null children) $ X.image X.! map imageAttr attrs
