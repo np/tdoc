@@ -77,18 +77,18 @@ data FormMethod = GET
                 | POST
                 | RawFormMethod String
 
-data Size = Px Int
-          | Cm Int
-          | Em Int
-newtype Width = Width { fromWidth :: Size }
-newtype Height = Height { fromHeight :: Size }
+data Length = Px Int
+            | Cm Int
+            | Em Int
+newtype Width = Width { fromWidth :: Length }
+newtype Height = Height { fromHeight :: Length }
 
-instance Show Size where
+instance Show Length where
   show (Px x) = show x ++ "px"
   show (Cm x) = show x ++ "cm"
   show (Em x) = show x ++ "em"
 
-toPixels :: Size -> Int
+toPixels :: Length -> Int
 toPixels (Px x) = x
 toPixels _ = error "toPixels: wrong unit"
 
@@ -533,10 +533,10 @@ image attrs = TNode ImageTag attrs []
 src :: String -> AttributeOf Image
 src = TAttr SrcTag . Src
 
-width :: Size -> AttributeOf Image
+width :: Length -> AttributeOf Image
 width = TAttr WidthTag . Width
 
-height :: Size -> AttributeOf Image
+height :: Length -> AttributeOf Image
 height = TAttr HeightTag . Height
 
 alt :: String -> AttributeOf Image
