@@ -59,8 +59,14 @@ data HCol
 data Div a
 data Label
 data Input
+data Option
+data Select
+data Textarea
 data Form
 data Leaf
+data Selected = Selected
+data Multiple = Multiple
+newtype Size = Size { fromSize :: Int }
 newtype Style = Style { fromStyle :: String } -- put something more typeful
 newtype Url = Url { fromUrl :: String }
 newtype Alt = Alt { fromAlt :: String }
@@ -69,10 +75,22 @@ newtype ClassAttr = ClassAttr { fromClassAttr :: String }
 newtype Name = Name { fromName :: String }
 newtype Value = Value { fromValue :: String }
 newtype Action = Action { fromAction :: String }
-data InputType = TEXT
-               | NUMBER -- check me
-               | SUBMIT
-               | RawInputType String
+newtype Rows = Rows { fromRows :: Int }
+newtype Cols = Cols { fromCols :: Int }
+
+data InputType
+  = TEXT
+  | PASSWORD
+  | CHECKBOX
+  | RADIO
+  | SUBMIT
+  | RESET
+  | FILE
+  | IMAGE
+  | BUTTON
+  | HIDDEN
+  deriving (Eq, Ord, Enum)
+
 data FormMethod = GET
                 | POST
                 | RawFormMethod String
@@ -98,10 +116,16 @@ instance Show FormMethod where
   show (RawFormMethod s)  = s
 
 instance Show InputType where
-  show TEXT              = "text"
-  show NUMBER            = "number"
-  show SUBMIT            = "submit"
-  show (RawInputType s)  = s
+  show TEXT      = "text"
+  show PASSWORD  = "password"
+  show CHECKBOX  = "checkbox"
+  show RADIO     = "radio"
+  show SUBMIT    = "submit"
+  show RESET     = "reset"
+  show FILE      = "file"
+  show IMAGE     = "image"
+  show BUTTON    = "button"
+  show HIDDEN    = "hidden"
 
 data Tag tag where
   -- AnyTag        :: Tag Any
@@ -127,6 +151,9 @@ data Tag tag where
   DivTag        :: Tag (Div a)
   FormTag       :: Tag Form
   InputTag      :: Tag Input
+  OptionTag     :: Tag Option
+  SelectTag     :: Tag Select
+  TextareaTag   :: Tag Textarea
   LabelTag      :: Tag Label
 
   StyleTag      :: Tag Style
@@ -140,6 +167,11 @@ data Tag tag where
   ValueTag      :: Tag Value
   FormMethodTag :: Tag FormMethod
   ActionTag     :: Tag Action
+  SelectedTag   :: Tag Selected
+  MultipleTag   :: Tag Multiple
+  SizeTag       :: Tag Size
+  RowsTag       :: Tag Rows
+  ColsTag       :: Tag Cols
   -- UrlTag        :: Tag Url
 
 -- instance IsNode Any
@@ -165,6 +197,9 @@ instance IsNode HCol
 instance IsNode a => IsNode (Div a)
 instance IsNode Label
 instance IsNode Input
+instance IsNode Option
+instance IsNode Select
+instance IsNode Textarea
 instance IsNode Form
 
 class IsNode a => IsInline a
@@ -185,7 +220,6 @@ instance IsBlock Table
 instance IsBlock Hr
 instance IsBlock Label
 instance IsBlock Form
-instance IsBlock Input
 
 class IsNode a => IsBlockOrInline a
 
@@ -208,6 +242,10 @@ instance Child Root Document
 instance Child Preambule Title
 
 instance Child Title Leaf
+
+instance Child Option Leaf
+
+instance Child Textarea Leaf
 
 instance Child a b => Child (Div a) b
 
@@ -247,6 +285,9 @@ instance Child Row HCol
 instance Child Table Row
 instance Child Form Label
 instance Child Form Input
+instance Child Form Textarea
+instance Child Form Select
+instance Child Select Option
 instance Form ~ a => Child Form (Div a)
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
@@ -261,8 +302,13 @@ instance IsAttribute ClassAttr
 instance IsAttribute Name
 instance IsAttribute Value
 instance IsAttribute Action
+instance IsAttribute Size
 instance IsAttribute InputType
 instance IsAttribute FormMethod
+instance IsAttribute Selected
+instance IsAttribute Multiple
+instance IsAttribute Rows
+instance IsAttribute Cols
 
 instance IsNode a => IsAttributeOf ClassAttr a
 instance IsNode n => IsAttributeOf Style n
@@ -273,8 +319,17 @@ instance IsAttributeOf Width Image
 instance IsAttributeOf Name Input
 instance IsAttributeOf Value Input
 instance IsAttributeOf InputType Input
+instance IsAttributeOf Selected Option
+instance IsAttributeOf Value Option
+instance IsAttributeOf Multiple Select
+instance IsAttributeOf Name Select
+instance IsAttributeOf Size Select
 instance IsAttributeOf Action Form
 instance IsAttributeOf FormMethod Form
+instance IsAttributeOf Rows Textarea
+instance IsAttributeOf Cols Textarea
+instance IsAttributeOf Name Textarea
+
 type AttributesOf nodeTag = [AttributeOf nodeTag] -- AttributesMap nodeTag
 
 data TDoc tag where
@@ -381,6 +436,14 @@ instance HasLeaves HCol       where
   charToChildren              = toChildren . char
   lazyByteStringToChildren    = toChildren . lazyByteString
   strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves Option     where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
+instance HasLeaves Textarea   where
+  charToChildren              = toChildren . char
+  lazyByteStringToChildren    = toChildren . lazyByteString
+  strictByteStringToChildren  = toChildren . strictByteString
 
 instance HasLeaves a => ToChildren Char               a where toChildren = charToChildren
 instance HasLeaves a => ToChildren Lazy.ByteString    a where toChildren = lazyByteStringToChildren
@@ -455,11 +518,18 @@ input = tNodeNullary InputTag
 option :: Star Option
 option = tNode OptionTag
 
-form :: AttributesOf Form -> TDocMaker Form
-form eta = tNode FormTag eta
+-- actually Plus Select would be a more precise type
+select :: Star Select
+select = tNode SelectTag
 
-input :: AttributesOf Input -> TDoc Input
-input attrs = TNode InputTag attrs []
+selectQ :: AttributesOf Select -> (String, String) -> [(String, String)] -> TDoc Select
+selectQ attrs (val0, children0) opts
+  = select attrs (option [value val0, selected] children0 : map f opts)
+  where
+    f (val, children) = option [value val] children
+
+textarea :: Rows -> Cols -> Star Textarea
+textarea r c attrs = tNode TextareaTag (TAttr RowsTag r : TAttr ColsTag c : attrs)
 
 label :: AttributesOf Label -> TDocMaker Label
 label eta = tNode LabelTag eta
@@ -585,6 +655,26 @@ formMethod = TAttr FormMethodTag
 action :: IsAttributeOf Action a => String -> AttributeOf a
 action = TAttr ActionTag . Action
 
+selected :: IsAttributeOf Selected a => AttributeOf a
+selected = TAttr SelectedTag Selected
+
+selectedB :: IsAttributeOf Selected a => Bool -> AttributesOf a -> AttributesOf a
+selectedB True   = (TAttr SelectedTag Selected:)
+selectedB False  = id
+
+selectedMS :: IsAttributeOf Selected a => Maybe Selected -> AttributesOf a -> AttributesOf a
+selectedMS (Just Selected) = (TAttr SelectedTag Selected:)
+selectedMS Nothing         = id
+
+rows :: IsAttributeOf Rows a => Int -> AttributeOf a
+rows = TAttr RowsTag . Rows
+
+cols :: IsAttributeOf Cols a => Int -> AttributeOf a
+cols = TAttr ColsTag . Cols
+
+size :: IsAttributeOf Size a => Int -> AttributeOf a
+size = TAttr SizeTag . Size
+
 classAttr :: IsNode a => String -> AttributeOf a
 classAttr = TAttr ClassAttrTag . ClassAttr
 
@@ -623,9 +713,12 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f BrTag         = assert (null children) $ X.br X.! map commonAttr attrs
         f HrTag         = assert (null children) $ X.hr X.! map commonAttr attrs
         f (RawHtmlTag h)= assert (null children) $ assert (null attrs) h
-        f FormTag       = X.form X.! map formAttr attrs X.<< children
-        f LabelTag      = X.label X.! map commonAttr attrs X.<< children
-        f InputTag      = X.input X.! map inputAttr attrs
+        f FormTag       = X.form      X.! map formAttr      attrs X.<< children
+        f LabelTag      = X.label     X.! map commonAttr    attrs X.<< children
+        f InputTag      = X.input     X.! map inputAttr     attrs
+        f SelectTag     = X.select    X.! map selectAttr    attrs X.<< children
+        f TextareaTag   = X.textarea  X.! map textareaAttr  attrs X.<< children
+        f OptionTag     = X.option    X.! map optionAttr    attrs X.<< children
         f ClassAttrTag  = error "impossible"
         f AltTag        = error "impossible"
         f StyleTag      = error "impossible"
@@ -637,6 +730,11 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f ValueTag      = error "impossible"
         f FormMethodTag = error "impossible"
         f InputTypeTag  = error "impossible"
+        f SelectedTag   = error "impossible"
+        f MultipleTag   = error "impossible"
+        f SizeTag       = error "impossible"
+        f RowsTag       = error "impossible"
+        f ColsTag       = error "impossible"
 
         heading :: Child Span a => (Html -> Html) -> TDoc a -> Html
         heading hN child = hN {-X.! map commonAttr attrs-} X.<< child X.+++ children
@@ -644,7 +742,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         genSpan :: nodeTag ~ Span => Maybe (String, AttributesOf nodeTag) -> Html
         genSpan (Just ("strong", attrs')) = X.strong X.! map commonAttr attrs' X.<< children
         genSpan (Just ("italics", attrs')) = X.italics X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("teletype", attrs')) = X.tt X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("tt", attrs')) = X.tt X.! map commonAttr attrs' X.<< children
         genSpan (Just ("small", attrs')) = X.small X.! map commonAttr attrs' X.<< children
         genSpan (Just ("big", attrs')) = X.big X.! map commonAttr attrs' X.<< children
         genSpan (Just ("sub", attrs')) = X.sub X.! map commonAttr attrs' X.<< children
@@ -684,6 +782,29 @@ renderTDocHtml (TNode tag attrs children) = f tag
         imageAttr (TAttr WidthTag (Width w))   = X.width . show . toPixels $ w
         imageAttr (TAttr HeightTag (Height h)) = X.height . show . toPixels $ h
         imageAttr _ = error "imageAttr: bug"
+
+        selectAttr :: AttributeOf Select -> HtmlAttr
+        selectAttr (TAttr ClassAttrTag  (ClassAttr x))  = X.theclass x
+        selectAttr (TAttr StyleTag      (Style x))      = X.thestyle x
+        selectAttr (TAttr MultipleTag   Multiple)       = X.multiple
+        selectAttr (TAttr NameTag       (Name x))       = X.name x
+        selectAttr (TAttr SizeTag       (Size x))       = X.size (show x)
+        selectAttr _ = error "selectAttr: bug"
+
+        textareaAttr :: AttributeOf Textarea -> HtmlAttr
+        textareaAttr (TAttr ClassAttrTag  (ClassAttr x))  = X.theclass x
+        textareaAttr (TAttr StyleTag      (Style x))      = X.thestyle x
+        textareaAttr (TAttr NameTag       (Name x))       = X.name x
+        textareaAttr (TAttr RowsTag       (Rows x))       = X.rows (show x)
+        textareaAttr (TAttr ColsTag       (Cols x))       = X.cols (show x)
+        textareaAttr _ = error "textareaAttr: bug"
+
+        optionAttr :: AttributeOf Option -> HtmlAttr
+        optionAttr (TAttr ClassAttrTag  (ClassAttr x))  = X.theclass x
+        optionAttr (TAttr StyleTag      (Style x))      = X.thestyle x
+        optionAttr (TAttr ValueTag      (Value n))      = X.value n
+        optionAttr (TAttr SelectedTag   Selected)       = X.selected
+        optionAttr _ = error "optionAttr: bug"
 
 ex :: IO ()
 ex = putStr
