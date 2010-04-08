@@ -531,44 +531,47 @@ selectQ attrs (val0, children0) opts
 textarea :: Rows -> Cols -> Star Textarea
 textarea r c attrs = tNode TextareaTag (TAttr RowsTag r : TAttr ColsTag c : attrs)
 
-label :: AttributesOf Label -> TDocMaker Label
-label eta = tNode LabelTag eta
+label :: Star Label
+label = tNode LabelTag
 
-div :: AttributesOf (Div a) -> TDocMaker (Div a)
-div eta = tNode DivTag eta
+div :: Star (Div a)
+div = tNode DivTag
 
-ulist :: TDocMaker UList
-ulist = tNode UListTag []
+ulist :: Star UList
+ulist = tNode UListTag
 
 -- | 'ulistQ' is a quick version of 'ulist' when all children
 -- of a UList are homogeneous one can factor the building of
 -- the Item nodes.
 ulistQ :: Child Item a => [TDoc a] -> TDoc UList
-ulistQ = tNode UListTag [] . map item
+ulistQ = tNode UListTag [] . map (item [])
 
-item :: TDocMaker Item
-item = tNode ItemTag []
+item :: Star Item
+item = tNode ItemTag
 
-table :: TDocMaker Table
-table = tNode TableTag []
+table :: Star Table
+table = tNode TableTag
 
-col :: TDocMaker Col
-col = tNode ColTag []
+col :: Star Col
+col = tNode ColTag
 
-hcol :: TDocMaker HCol
-hcol = tNode HColTag []
+hcol :: Star HCol
+hcol = tNode HColTag
 
-row :: TDocMaker Row
-row = tNode RowTag []
+row :: Star Row
+row = tNode RowTag
 
 -- since their is no 'instance Child Leaf X'
 -- one cannot build a 'TNode attrs [x] :: TDoc Leaf'
 -- but one can build a 'TNode attrs [] :: TDoc Leaf'
 
-paragraph :: TDocMaker Paragraph
-paragraph = tNode ParagraphTag []
+paragraph :: Star Paragraph
+paragraph = tNode ParagraphTag
 
--- p :: TDocMaker Paragraph
+para :: ToChildren children Paragraph => children -> TDoc Paragraph
+para = paragraph []
+
+-- p :: Star Paragraph
 -- p = paragraph
 
 rawHtml :: Html -> TDoc a
@@ -586,32 +589,35 @@ strictByteString = string . S8.unpack
 lazyByteString :: Lazy.ByteString -> TDoc Leaf
 lazyByteString = string . L8.unpack
 
-spanDoc :: TDocMaker Span
-spanDoc = tNode SpanTag []
+spanDoc :: Star Span
+spanDoc = tNode SpanTag
 
-strong :: TDocMaker Span
-strong = tNode SpanTag [classAttr "strong"]
+spanDocCA :: String -> Star Span
+spanDocCA ca = tNode SpanTag . (classAttr ca:)
 
-small :: TDocMaker Span
-small = tNode SpanTag [classAttr "small"]
+strong :: Star Span
+strong = spanDocCA "strong"
 
-big :: TDocMaker Span
-big = tNode SpanTag [classAttr "big"]
+small :: Star Span
+small = spanDocCA "small"
 
-italics :: TDocMaker Span
-italics = tNode SpanTag [classAttr "italics"]
+big :: Star Span
+big = spanDocCA "big"
 
-sub :: TDocMaker Span
-sub = tNode SpanTag [classAttr "sub"]
+italics :: Star Span
+italics = spanDocCA "italics"
 
-sup :: TDocMaker Span
-sup = tNode SpanTag [classAttr "sup"]
+sub :: Star Span
+sub = spanDocCA "sub"
 
-teletype :: TDocMaker Span
-teletype = tNode SpanTag [classAttr "teletype"]
+sup :: Star Span
+sup = spanDocCA "sup"
 
-bold :: TDocMaker Span
-bold = tNode SpanTag [classAttr "bold"]
+tt :: Star Span
+tt = spanDocCA "tt"
+
+bold :: Star Span
+bold = spanDocCA "bold"
 
 br :: TDoc Br
 br = TNode BrTag [] []
@@ -619,14 +625,14 @@ br = TNode BrTag [] []
 hr :: TDoc Hr
 hr = TNode HrTag [] []
 
-hlink :: String -> TDocMaker HLink
-hlink url = tNode (HLinkTag (Url url)) []
+hlink :: String -> Star HLink
+hlink url = tNode (HLinkTag (Url url))
 
 style :: forall a. IsAttributeOf Style a => String -> AttributeOf a
 style = TAttr StyleTag . Style
 
-image :: AttributesOf Image -> TDoc Image
-image attrs = TNode ImageTag attrs []
+image :: Nullary Image
+image = tNodeNullary ImageTag
 
 src :: String -> AttributeOf Image
 src = TAttr SrcTag . Src
@@ -811,30 +817,30 @@ ex = putStr
      $ X.prettyHtml
      $ toHtml
      $ root
-        (preambule $ title "t")
-        $ document $ do
-            section "s1" <<
-              subsection "ss1" << do
-                paragraph << "p1"
-                ulist << do
-                  item << paragraph "a"
-                  item << paragraph << do
+        (preambule [] $ title [] "t")
+        $ document [] $ do
+            section "s1" [] <<
+              subsection "ss1" [] << do
+                para << "p1"
+                ulist [] << do
+                  item [] << para "a"
+                  item [] << para << do
                     put "b"
                     put "c"
-                paragraph << "p1"
-            section "s2" <<
-              subsection "ss2" << do
-                paragraph << do
+                para << "p1"
+            section "s2" [] <<
+              subsection "ss2" [] << do
+                para << do
                   put "p2a"
                   put br
                   put "p2b"
-                paragraph << ["p3a", "p3b"]
+                para << ["p3a", "p3b"]
                 put hr
-                paragraph << string "p4"
-                put $ paragraph ["p5a", "p5b"]
-            section "s3" << ()
+                para << string "p4"
+                put $ para ["p5a", "p5b"]
+            section "s3" [] << ()
             put hr
-            section "s4" << subsection "ss4" << paragraph << "p5"
-            section "s5" << [hr,hr]
+            section "s4" [] << subsection "ss4" [] << para << "p5"
+            section "s5" [] << [hr,hr]
 
 --end

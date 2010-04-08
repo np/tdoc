@@ -8,7 +8,7 @@ import Data.Char (isSpace)
 import Data.Monoid
 
 frTop :: TDocMaker Span
-frTop = spanDoc
+frTop = spanDoc []
 
 frAntiq :: ToChildren a father => a -> [TChildOf father] 
 frAntiq = toChildren
