@@ -275,9 +275,10 @@ instance IsAttributeOf Value Input
 instance IsAttributeOf InputType Input
 instance IsAttributeOf Action Form
 instance IsAttributeOf FormMethod Form
+type AttributesOf nodeTag = [AttributeOf nodeTag] -- AttributesMap nodeTag
 
 data TDoc tag where
-  TNode   :: Tag fatherTag -> [AttributeOf fatherTag] ->
+  TNode   :: Tag fatherTag -> AttributesOf fatherTag ->
              [TChildOf fatherTag] -> TDoc fatherTag
 
 data TChildOf tag where
@@ -285,16 +286,26 @@ data TChildOf tag where
 
 type PutM a = Writer [a] ()
 
-type TDocMaker node = forall children. ToChildren children node => children -> TDoc node
+type TDocMaker node
+  = forall children. ToChildren children node =>
+      children -> TDoc node
+type Star node
+  = forall children. ToChildren children node =>
+      AttributesOf node -> children -> TDoc node
+type Nullary node
+  = AttributesOf node -> TDoc node
+type Unary node
+  = forall child. Child node child =>
+      AttributesOf node -> TDoc child -> TDoc node
+type Plus node
+  = forall children child. (Child node child, ToChildren children node) =>
+      AttributesOf node -> TDoc child -> children -> TDoc node
 
 data AttributeOf nodeTag where
   TAttr :: IsAttributeOf attrTag nodeTag => Tag attrTag -> attrTag -> AttributeOf nodeTag
 
 -- try to use this
 -- newtype AttributesMap nodeTag = AttrMap { getAttrMap :: Map AnyTag (AttributeOf nodeTag) }
-
-
-type AttributesOf nodeTag = [AttributeOf nodeTag] -- AttributesMap nodeTag
 
 infixl 8 !
 
@@ -404,28 +415,45 @@ a +++ b = toChildren a <> toChildren b
 put :: ToChildren children fatherTag => children -> PutM (TChildOf fatherTag)
 put = tell . toChildren
 
-tNode :: ToChildren a fatherTag => Tag fatherTag -> [AttributeOf fatherTag] ->
-         a -> TDoc fatherTag
+tNode :: Tag a -> Star a
 tNode tag attrs = TNode tag attrs . toChildren
+
+tNodeNullary :: Tag a -> Nullary a
+tNodeNullary tag attrs = TNode tag attrs []
+
+tNodeUnary :: Tag a -> Unary a
+tNodeUnary tag attrs = TNode tag attrs . (:[]) . TChild
+
+tNodePlus :: Tag a -> Plus a
+tNodePlus tag attrs first rest = TNode tag attrs (TChild first : toChildren rest)
 
 root :: (ToTDoc preambule Preambule, ToTDoc doc Document) => preambule -> doc -> TDoc Root
 root x y = TNode RootTag [] [ TChild (toTDoc x :: TDoc Preambule)
                             , TChild (toTDoc y :: TDoc Document) ]
 
-preambule :: TDocMaker Preambule
-preambule = tNode PreambuleTag []
+preambule :: Star Preambule
+preambule = tNode PreambuleTag
 
-document :: TDocMaker Document
-document = tNode DocumentTag []
+document :: Star Document
+document = tNode DocumentTag
 
-title :: TDocMaker Title
-title = tNode TitleTag []
+title :: Star Title
+title = tNode TitleTag
 
-section :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Section
-section t = tNode (SectionTag (toTDoc t :: TDoc a)) []
+section :: forall a b. (Child Span a, ToTDoc b a) => b -> Star Section
+section t = tNode (SectionTag (toTDoc t :: TDoc a))
 
-subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> TDocMaker Subsection
-subsection t = tNode (SubsectionTag (toTDoc t :: TDoc a)) []
+subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> Star Subsection
+subsection t = tNode (SubsectionTag (toTDoc t :: TDoc a))
+
+form :: Star Form
+form = tNode FormTag
+
+input :: Nullary Input
+input = tNodeNullary InputTag
+
+option :: Star Option
+option = tNode OptionTag
 
 form :: AttributesOf Form -> TDocMaker Form
 form eta = tNode FormTag eta
