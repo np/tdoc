@@ -3,12 +3,12 @@ module Text.TDoc.QQ (frQQ, frTop, frAntiq) where
 
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
-import Text.TDoc (spanDoc, TDocMaker, Span, ToChildren(..), TChildOf(..))
+import Text.TDoc (spanDoc, Star, Span, ToChildren(..), TChildOf(..))
 import Data.Char (isSpace)
 import Data.Monoid
 
-frTop :: TDocMaker Span
-frTop = spanDoc []
+frTop :: Star Span
+frTop = spanDoc
 
 frAntiq :: ToChildren a father => a -> [TChildOf father] 
 frAntiq = toChildren

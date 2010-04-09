@@ -341,20 +341,17 @@ data TChildOf tag where
 
 type PutM a = Writer [a] ()
 
-type TDocMaker node
-  = forall children. ToChildren children node =>
-      children -> TDoc node
 type Star node
   = forall children. ToChildren children node =>
-      AttributesOf node -> children -> TDoc node
+      children -> TDoc node
 type Nullary node
-  = AttributesOf node -> TDoc node
+  = TDoc node
 type Unary node
   = forall child. Child node child =>
-      AttributesOf node -> TDoc child -> TDoc node
+      TDoc child -> TDoc node
 type Plus node
   = forall children child. (Child node child, ToChildren children node) =>
-      AttributesOf node -> TDoc child -> children -> TDoc node
+      TDoc child -> children -> TDoc node
 
 data AttributeOf nodeTag where
   TAttr :: IsAttributeOf attrTag nodeTag => Tag attrTag -> attrTag -> AttributeOf nodeTag
@@ -478,104 +475,107 @@ a +++ b = toChildren a <> toChildren b
 put :: ToChildren children fatherTag => children -> PutM (TChildOf fatherTag)
 put = tell . toChildren
 
-tNode :: Tag a -> Star a
-tNode tag attrs = TNode tag attrs . toChildren
+tStar :: Tag a -> Star a
+tStar tag = TNode tag [] . toChildren
 
-tNodeNullary :: Tag a -> Nullary a
-tNodeNullary tag attrs = TNode tag attrs []
+tNullary :: Tag a -> Nullary a
+tNullary tag = TNode tag [] []
 
-tNodeUnary :: Tag a -> Unary a
-tNodeUnary tag attrs = TNode tag attrs . (:[]) . TChild
+tUnary :: Tag a -> Unary a
+tUnary tag = tStar tag . (:[]) . TChild
 
-tNodePlus :: Tag a -> Plus a
-tNodePlus tag attrs first rest = TNode tag attrs (TChild first : toChildren rest)
+tPlus :: Tag a -> Plus a
+tPlus tag first rest = tStar tag (TChild first : toChildren rest)
 
 root :: (ToTDoc preambule Preambule, ToTDoc doc Document) => preambule -> doc -> TDoc Root
-root x y = TNode RootTag [] [ TChild (toTDoc x :: TDoc Preambule)
-                            , TChild (toTDoc y :: TDoc Document) ]
+root x y = tStar RootTag [ TChild (toTDoc x :: TDoc Preambule)
+                         , TChild (toTDoc y :: TDoc Document) ]
 
 preambule :: Star Preambule
-preambule = tNode PreambuleTag
+preambule = tStar PreambuleTag
 
 document :: Star Document
-document = tNode DocumentTag
+document = tStar DocumentTag
 
 title :: Star Title
-title = tNode TitleTag
+title = tStar TitleTag
 
 section :: forall a b. (Child Span a, ToTDoc b a) => b -> Star Section
-section t = tNode (SectionTag (toTDoc t :: TDoc a))
+section t = tStar (SectionTag (toTDoc t :: TDoc a))
 
 subsection :: forall a b. (Child Span a, ToTDoc b a) => b -> Star Subsection
-subsection t = tNode (SubsectionTag (toTDoc t :: TDoc a))
+subsection t = tStar (SubsectionTag (toTDoc t :: TDoc a))
 
 form :: Star Form
-form = tNode FormTag
+form = tStar FormTag
 
 input :: Nullary Input
-input = tNodeNullary InputTag
+input = tNullary InputTag
 
 option :: Star Option
-option = tNode OptionTag
+option = tStar OptionTag
 
 -- actually Plus Select would be a more precise type
 select :: Star Select
-select = tNode SelectTag
+select = tStar SelectTag
 
 selectQ :: AttributesOf Select -> (String, String) -> [(String, String)] -> TDoc Select
 selectQ attrs (val0, children0) opts
-  = select attrs (option [value val0, selected] children0 : map f opts)
+  = select ! attrs $ (option ! [value val0, selected] $ children0) : map f opts
   where
-    f (val, children) = option [value val] children
+    f (val, children) = option ! [value val] $ children
 
 textarea :: Rows -> Cols -> Star Textarea
-textarea r c attrs = tNode TextareaTag (TAttr RowsTag r : TAttr ColsTag c : attrs)
+textarea r c = tStar TextareaTag ! [rows (fromRows r), cols (fromCols c)]
 
 label :: Star Label
-label = tNode LabelTag
+label = tStar LabelTag
 
 div :: Star (Div a)
-div = tNode DivTag
+div = tStar DivTag
 
 ulist :: Star UList
-ulist = tNode UListTag
+ulist = tStar UListTag
 
 -- | 'ulistQ' is a quick version of 'ulist' when all children
 -- of a UList are homogeneous one can factor the building of
 -- the Item nodes.
 ulistQ :: Child Item a => [TDoc a] -> TDoc UList
-ulistQ = tNode UListTag [] . map (item [])
+ulistQ = tStar UListTag . map item
 
 item :: Star Item
-item = tNode ItemTag
+item = tStar ItemTag
 
 table :: Star Table
-table = tNode TableTag
+table = tStar TableTag
 
 col :: Star Col
-col = tNode ColTag
+col = tStar ColTag
 
 hcol :: Star HCol
-hcol = tNode HColTag
+hcol = tStar HColTag
 
 row :: Star Row
-row = tNode RowTag
+row = tStar RowTag
 
 -- since their is no 'instance Child Leaf X'
 -- one cannot build a 'TNode attrs [x] :: TDoc Leaf'
 -- but one can build a 'TNode attrs [] :: TDoc Leaf'
 
 paragraph :: Star Paragraph
-paragraph = tNode ParagraphTag
+paragraph = tStar ParagraphTag
 
 para :: ToChildren children Paragraph => children -> TDoc Paragraph
-para = paragraph []
+para = paragraph
 
 -- p :: Star Paragraph
 -- p = paragraph
 
 rawHtml :: Html -> TDoc a
-rawHtml h = TNode (RawHtmlTag h) [] []
+rawHtml = tNullary . RawHtmlTag
+
+rawHtml_ :: a -> Html -> TDoc a
+rawHtml_ _ = rawHtml
 
 char :: Char -> TDoc Leaf
 char = rawHtml . toHtml
@@ -590,10 +590,10 @@ lazyByteString :: Lazy.ByteString -> TDoc Leaf
 lazyByteString = string . L8.unpack
 
 spanDoc :: Star Span
-spanDoc = tNode SpanTag
+spanDoc = tStar SpanTag
 
 spanDocCA :: String -> Star Span
-spanDocCA ca = tNode SpanTag . (classAttr ca:)
+spanDocCA ca = tStar SpanTag ! [classAttr ca]
 
 strong :: Star Span
 strong = spanDocCA "strong"
@@ -619,20 +619,20 @@ tt = spanDocCA "tt"
 bold :: Star Span
 bold = spanDocCA "bold"
 
-br :: TDoc Br
-br = TNode BrTag [] []
+br :: Nullary Br
+br = tNullary BrTag
 
-hr :: TDoc Hr
-hr = TNode HrTag [] []
+hr :: Nullary Hr
+hr = tNullary HrTag
 
 hlink :: String -> Star HLink
-hlink url = tNode (HLinkTag (Url url))
+hlink url = tStar (HLinkTag (Url url))
 
 style :: forall a. IsAttributeOf Style a => String -> AttributeOf a
 style = TAttr StyleTag . Style
 
 image :: Nullary Image
-image = tNodeNullary ImageTag
+image = tNullary ImageTag
 
 src :: String -> AttributeOf Image
 src = TAttr SrcTag . Src
@@ -817,19 +817,19 @@ ex = putStr
      $ X.prettyHtml
      $ toHtml
      $ root
-        (preambule [] $ title [] "t")
-        $ document [] $ do
-            section "s1" [] <<
-              subsection "ss1" [] << do
+        (preambule $ title "t")
+        $ document $ do
+            section "s1" <<
+              subsection "ss1" << do
                 para << "p1"
-                ulist [] << do
-                  item [] << para "a"
-                  item [] << para << do
+                ulist << do
+                  item << para "a"
+                  item << para << do
                     put "b"
                     put "c"
                 para << "p1"
-            section "s2" [] <<
-              subsection "ss2" [] << do
+            section "s2" <<
+              subsection "ss2" << do
                 para << do
                   put "p2a"
                   put br
@@ -838,9 +838,9 @@ ex = putStr
                 put hr
                 para << string "p4"
                 put $ para ["p5a", "p5b"]
-            section "s3" [] << ()
+            section "s3" << ()
             put hr
-            section "s4" [] << subsection "ss4" [] << para << "p5"
-            section "s5" [] << [hr,hr]
+            section "s4" << subsection "ss4" << para << "p5"
+            section "s5" << [hr,hr]
 
 --end
