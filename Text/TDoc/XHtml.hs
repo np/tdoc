@@ -27,6 +27,7 @@ data HtmlTag t where
   ItemTag       :: HtmlTag Item
   ParagraphTag  :: HtmlTag Paragraph
   SpanTag       :: HtmlTag Span
+  AnchorTag     :: Identifier -> HtmlTag Anchor
   HLinkTag      :: Url -> HtmlTag HLink
   TitleTag      :: HtmlTag Title
   ImageTag      :: HtmlTag Image
@@ -110,6 +111,9 @@ instance AttributeTags HtmlTag where
 instance SpanTag HtmlTag where
   spanTag              = SpanTag
 
+instance AnchorTag HtmlTag where
+  anchorTag            = AnchorTag
+
 instance Tags HtmlTag where
   rootTag              = RootTag
   preambuleTag         = PreambuleTag
@@ -174,6 +178,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f SelectTag     = X.select    X.! map selectAttr    attrs X.<< children
         f TextareaTag   = X.textarea  X.! map textareaAttr  attrs X.<< children
         f OptionTag     = X.option    X.! map optionAttr    attrs X.<< children
+        f (AnchorTag i) = X.anchor    X.! (X.identifier (fromIdentifier i) : map commonAttr attrs) X.<< children
         f ClassAttrTag  = error "impossible"
         f AltTag        = error "impossible"
         f StyleTag      = error "impossible"

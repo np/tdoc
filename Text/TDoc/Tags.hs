@@ -86,45 +86,6 @@ paragraph = tStar paragraphTag
 para :: (Tags t, ToChildren t children Paragraph) => children -> TDoc t Paragraph
 para = paragraph
 
-{- SPAN -}
-
-data Span
-instance IsNode Span
-instance IsInline Span
-instance IsBlockOrInline Span
-instance IsInline a => Child Span a
-class    ClassAttrTag t => SpanTag t where spanTag :: t Span
-
-spanDoc :: SpanTag t => Star t Span
-spanDoc = tStar spanTag
-
-spanDocCA :: SpanTag t => String -> Star t Span
-spanDocCA ca = tStar spanTag ! [classAttr ca]
-
-strong :: SpanTag t => Star t Span
-strong = spanDocCA "strong"
-
-small :: SpanTag t => Star t Span
-small = spanDocCA "small"
-
-big :: SpanTag t => Star t Span
-big = spanDocCA "big"
-
-italics :: SpanTag t => Star t Span
-italics = spanDocCA "italics"
-
-sub :: SpanTag t => Star t Span
-sub = spanDocCA "sub"
-
-sup :: SpanTag t => Star t Span
-sup = spanDocCA "sup"
-
-tt :: SpanTag t => Star t Span
-tt = spanDocCA "tt"
-
-bold :: SpanTag t => Star t Span
-bold = spanDocCA "bold"
-
 data HLink
 instance IsNode HLink
 instance IsInline HLink
@@ -200,7 +161,9 @@ class LeafTags t where
   strictByteStringTag  :: Strict.ByteString -> t Leaf
   lazyByteStringTag    :: Lazy.ByteString -> t Leaf
 
-class (AttributeTags t, LeafTags t) => Tags t where
+class (SpanTag t
+      ,AnchorTag t
+      ,AttributeTags t, LeafTags t) => Tags t where
   rootTag              :: t Root
   preambuleTag         :: t Preambule
   documentTag          :: t Document
@@ -267,3 +230,55 @@ row = tStar rowTag
 
 hr :: Tags t => Nullary t Hr
 hr = tNullary hrTag
+
+{- SPAN -}
+
+data Span
+instance IsNode Span
+instance IsInline Span
+instance IsBlockOrInline Span
+instance IsInline a => Child Span a
+class    ClassAttrTag t => SpanTag t where spanTag :: t Span
+
+spanDoc :: SpanTag t => Star t Span
+spanDoc = tStar spanTag
+
+spanDocCA :: SpanTag t => String -> Star t Span
+spanDocCA ca = tStar spanTag ! [classAttr ca]
+
+strong :: SpanTag t => Star t Span
+strong = spanDocCA "strong"
+
+small :: SpanTag t => Star t Span
+small = spanDocCA "small"
+
+big :: SpanTag t => Star t Span
+big = spanDocCA "big"
+
+italics :: SpanTag t => Star t Span
+italics = spanDocCA "italics"
+
+sub :: SpanTag t => Star t Span
+sub = spanDocCA "sub"
+
+sup :: SpanTag t => Star t Span
+sup = spanDocCA "sup"
+
+tt :: SpanTag t => Star t Span
+tt = spanDocCA "tt"
+
+bold :: SpanTag t => Star t Span
+bold = spanDocCA "bold"
+
+data Anchor
+instance IsNode Anchor
+instance IsInline Anchor
+instance IsBlockOrInline Anchor
+instance Child Anchor Span
+class    AnchorTag t where anchorTag :: Identifier -> t Anchor
+anchor :: AnchorTag t => Identifier -> Unary t Anchor
+anchor i = tUnary (anchorTag i)
+{-
+anchor :: String -> TDoc Span -> TDoc Span
+anchor nam body = spanDoc . rawHtml_ (undefined :: Span) $ X.anchor X.! [X.identifier nam] X.<< body
+-}
