@@ -2,7 +2,7 @@
              MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Text.TDoc.Tags.Form where
 
-import Text.TDoc
+import Text.TDoc.Core
 import Text.TDoc.Tags
 
 newtype  Action = Action { fromAction :: String }

@@ -1,6 +1,6 @@
 name:            tdoc
 cabal-Version:   >=1.2
-version:         0.1
+version:         0.2.0
 license:         BSD3
 license-File:    LICENSE
 copyright:       (c) Nicolas Pouillard
@@ -13,7 +13,7 @@ stability:       Experimental
 build-type:      Simple
 
 library
-  build-depends:   base>=3.0, containers>=0.1, transformers,
-                   template-haskell, monads-tf, xhtml, bytestring
-  exposed-modules: Text.TDoc, Text.TDoc.QQ
+  build-depends:   base>=3.0&&<5, transformers,
+                   template-haskell, xhtml, bytestring
+  exposed-modules: Text.TDoc, Text.TDoc.Tags, Text.TDoc.Tags.Form, Text.TDoc.XHtml, Text.TDoc.QQ
   ghc-options:     -Wall

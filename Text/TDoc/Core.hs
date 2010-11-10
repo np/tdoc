@@ -92,7 +92,7 @@ class FromTDoc t tag a where
 instance (t1 ~ t2, a ~ b) => FromTDoc t1 a (TDoc t2 b) where
   fromTDoc = id
 
-instance (t1 ~ t2, Child b a) => FromTDoc t1 a (TChildOf t1 b) where
+instance (t1 ~ t2, Child b a) => FromTDoc t1 a (TChildOf t2 b) where
   fromTDoc = TChild
 
 instance FromTDoc t tag a => FromTDoc t tag [a] where

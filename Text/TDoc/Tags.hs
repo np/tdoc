@@ -1,8 +1,8 @@
-{-# LANGUAGE Rank2Types, TypeFamilies, ScopedTypeVariables, GADTs, EmptyDataDecls,
+{-# LANGUAGE TypeFamilies, ScopedTypeVariables, EmptyDataDecls,
              MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Text.TDoc.Tags where
 
-import Text.TDoc
+import Text.TDoc.Core
 import qualified Data.ByteString       as Strict
 import qualified Data.ByteString.Lazy  as Lazy
 

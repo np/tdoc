@@ -7,7 +7,9 @@ import Control.Arrow (second)
 import Control.Exception (assert)
 import qualified Data.ByteString.Char8       as S8
 import qualified Data.ByteString.Lazy.Char8  as L8
-import Text.TDoc
+import Text.TDoc.Core
+import Text.TDoc.Tags
+import Text.TDoc.Tags.Form
 
 instance (t ~ HtmlTag, IsNode a) => HTML (TDoc t a) where toHtml = renderTDocHtml
 
@@ -58,12 +60,44 @@ data HtmlTag t where
   RowsTag       :: HtmlTag Rows
   ColsTag       :: HtmlTag Cols
 
-instance Tag HtmlTag where
-  rootTag              = RootTag
+instance LeafTags HtmlTag where
   charTag              = RawHtmlTag . toHtml
   stringTag            = RawHtmlTag . toHtml
   strictByteStringTag  = RawHtmlTag . toHtml . S8.unpack
   lazyByteStringTag    = RawHtmlTag . toHtml . L8.unpack
+
+instance ValueAttributeTag HtmlTag where
+  valueTag             = ValueTag
+
+instance FormAttributeTags HtmlTag where
+  inputTypeTag         = InputTypeTag
+  formMethodTag        = FormMethodTag
+  actionTag            = ActionTag
+  selectedTag          = SelectedTag
+  multipleTag          = MultipleTag
+
+instance FormTags HtmlTag where
+  formTag              = FormTag
+  inputTag             = InputTag
+  optionTag            = OptionTag
+  selectTag            = SelectTag
+  textareaTag          = TextareaTag
+  labelTag             = LabelTag
+
+instance AttributeTags HtmlTag where
+  styleTag             = StyleTag
+  altTag               = AltTag
+  srcTag               = SrcTag
+  widthTag             = WidthTag
+  heightTag            = HeightTag
+  classAttrTag         = ClassAttrTag
+  nameTag              = NameTag
+  sizeTag              = SizeTag
+  rowsTag              = RowsTag
+  colsTag              = ColsTag
+
+instance Tag HtmlTag where
+  rootTag              = RootTag
   preambuleTag         = PreambuleTag
   documentTag          = DocumentTag
   sectionTag           = SectionTag
@@ -82,28 +116,6 @@ instance Tag HtmlTag where
   colTag               = ColTag
   hColTag              = HColTag
   divTag               = DivTag
-  formTag              = FormTag
-  inputTag             = InputTag
-  optionTag            = OptionTag
-  selectTag            = SelectTag
-  textareaTag          = TextareaTag
-  labelTag             = LabelTag
-  styleTag             = StyleTag
-  altTag               = AltTag
-  srcTag               = SrcTag
-  widthTag             = WidthTag
-  heightTag            = HeightTag
-  classAttrTag         = ClassAttrTag
-  inputTypeTag         = InputTypeTag
-  nameTag              = NameTag
-  valueTag             = ValueTag
-  formMethodTag        = FormMethodTag
-  actionTag            = ActionTag
-  selectedTag          = SelectedTag
-  multipleTag          = MultipleTag
-  sizeTag              = SizeTag
-  rowsTag              = RowsTag
-  colsTag              = ColsTag
 
 type HtmlAttributeOf = AttributeOf HtmlTag
 type HtmlAttributesOf x = AttributesOf HtmlTag x
