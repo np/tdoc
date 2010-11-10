@@ -3,6 +3,7 @@
 module Text.TDoc.Tags.Form where
 
 import Text.TDoc.Core
+import Text.TDoc.Attributes
 import Text.TDoc.Tags
 
 newtype  Action = Action { fromAction :: String }

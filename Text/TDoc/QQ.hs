@@ -3,11 +3,11 @@ module Text.TDoc.QQ (frQQ, frTop, frAntiq) where
 
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
-import Text.TDoc (spanDoc, Star, Span, Tag(..), ToChildren(..), TChildOf(..))
+import Text.TDoc (spanDoc, Star, Span, SpanTag(..), ToChildren(..), TChildOf(..))
 import Data.Char (isSpace)
 import Data.Monoid
 
-frTop :: Tag t => Star t Span
+frTop :: SpanTag t => Star t Span
 frTop = spanDoc
 
 frAntiq :: ToChildren t a father => a -> [TChildOf t father] 

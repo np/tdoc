@@ -9,6 +9,7 @@ import qualified Data.ByteString.Char8       as S8
 import qualified Data.ByteString.Lazy.Char8  as L8
 import Text.TDoc.Core
 import Text.TDoc.Tags
+import Text.TDoc.Attributes
 import Text.TDoc.Tags.Form
 
 instance (t ~ HtmlTag, IsNode a) => HTML (TDoc t a) where toHtml = renderTDocHtml
@@ -84,19 +85,32 @@ instance FormTags HtmlTag where
   textareaTag          = TextareaTag
   labelTag             = LabelTag
 
-instance AttributeTags HtmlTag where
+instance StyleAttrTag HtmlTag where
   styleTag             = StyleTag
-  altTag               = AltTag
+
+instance SrcAttrTag HtmlTag where
   srcTag               = SrcTag
-  widthTag             = WidthTag
+
+instance HeightAttrTag HtmlTag where
   heightTag            = HeightTag
+
+instance WidthAttrTag HtmlTag where
+  widthTag             = WidthTag
+
+instance ClassAttrTag HtmlTag where
   classAttrTag         = ClassAttrTag
+
+instance AttributeTags HtmlTag where
+  altTag               = AltTag
   nameTag              = NameTag
   sizeTag              = SizeTag
   rowsTag              = RowsTag
   colsTag              = ColsTag
 
-instance Tag HtmlTag where
+instance SpanTag HtmlTag where
+  spanTag              = SpanTag
+
+instance Tags HtmlTag where
   rootTag              = RootTag
   preambuleTag         = PreambuleTag
   documentTag          = DocumentTag
@@ -105,7 +119,6 @@ instance Tag HtmlTag where
   uListTag             = UListTag
   itemTag              = ItemTag
   paragraphTag         = ParagraphTag
-  spanTag              = SpanTag
   hLinkTag             = HLinkTag
   titleTag             = TitleTag
   imageTag             = ImageTag
