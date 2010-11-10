@@ -86,3 +86,43 @@ instance AddAttrs t b c => AddAttrs t (a -> b) c where
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
 
+class FromTDoc t tag a where
+  fromTDoc :: TDoc t tag -> a
+
+instance (t1 ~ t2, a ~ b) => FromTDoc t1 a (TDoc t2 b) where
+  fromTDoc = id
+
+instance (t1 ~ t2, Child b a) => FromTDoc t1 a (TChildOf t1 b) where
+  fromTDoc = TChild
+
+instance FromTDoc t tag a => FromTDoc t tag [a] where
+  fromTDoc = (:[]) . fromTDoc
+
+instance (Monad m, FromTDoc t tag a, Monoid a, b ~ ()) => FromTDoc t tag (WriterT a m b) where
+  fromTDoc = tell . fromTDoc
+
+infixr 7 <<
+infixr 2 +++
+
+(+++) :: (ToChildren t a tag, ToChildren t b tag) => a -> b -> [TChildOf t tag]
+a +++ b = toChildren a <> toChildren b
+
+-- | This operator is an infix sugar for 'put'
+-- @paragraph << do ...@ is equal to @put $ paragraph $ do ...@.
+(<<) :: (Child b a) => (c -> TDoc t a) -> c -> PutM (TChildOf t b)
+(<<) f = put . f
+
+put :: ToChildren t children fatherTag => children -> PutM (TChildOf t fatherTag)
+put = tell . toChildren
+
+tStar :: t a -> Star t a
+tStar tag = TNode tag [] . toChildren
+
+tNullary :: t a -> Nullary t a
+tNullary tag = TNode tag [] []
+
+tUnary :: t a -> Unary t a
+tUnary tag = tStar tag . (:[]) . TChild
+
+tPlus :: t a -> Plus t a
+tPlus tag first rest = tStar tag (TChild first : toChildren rest)
