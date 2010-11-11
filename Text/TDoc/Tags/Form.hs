@@ -1,36 +1,24 @@
-{-# LANGUAGE TypeFamilies, EmptyDataDecls,
+{-# LANGUAGE TypeFamilies, EmptyDataDecls, TemplateHaskell,
              MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Text.TDoc.Tags.Form where
 
 import Text.TDoc.Core
+import Text.TDoc.TH
 import Text.TDoc.Attributes
 import Text.TDoc.Tags
 
 newtype  Action = Action { fromAction :: String }
-instance IsAttribute Action
-
+data     Selected = Selected
+newtype  Value = Value { fromValue :: String }
+data     Multiple = Multiple
 data     FormMethod = GET
                     | POST
                     | RawFormMethod String
-instance IsAttribute FormMethod
+
 instance Show FormMethod where
   show POST               = "post"
   show GET                = "get"
   show (RawFormMethod s)  = s
-
-data     Selected = Selected
-instance IsAttribute Selected
-
-newtype  Value = Value { fromValue :: String }
-instance IsAttribute Value
-
-instance IsAttribute Multiple
-data     Multiple = Multiple
-
-data     Label
-instance IsNode Label
-instance IsBlock Label
-instance IsInline a => IsChildOf a Label
 
 data InputType
   = TEXT
@@ -44,7 +32,7 @@ data InputType
   | BUTTON
   | HIDDEN
   deriving (Eq, Ord, Enum)
-instance IsAttribute InputType
+
 instance Show InputType where
   show TEXT      = "text"
   show PASSWORD  = "password"
@@ -57,105 +45,88 @@ instance Show InputType where
   show BUTTON    = "button"
   show HIDDEN    = "hidden"
 
-data     Input
-instance IsNode Input
-instance IsAttributeOf Name Input
-instance IsAttributeOf Value Input
-instance IsAttributeOf InputType Input
+--
 
-data     Select
-instance IsNode Select
-instance IsChildOf Option Select
-instance IsAttributeOf Multiple Select
-instance IsAttributeOf Name Select
-instance IsAttributeOf Size Select
+$(attributes [''FormMethod, ''Action, ''Selected
+             ,''Value, ''Multiple, ''InputType])
 
-data     Option
-instance IsNode Option
-instance IsChildOf Leaf Option
-instance IsAttributeOf Selected Option
-instance IsAttributeOf Value Option
-class    ValueAttributeTag t where valueTag :: t Value
-value    :: (ValueAttributeTag t, IsAttributeOf Value a) => String -> AttributeOf t a
+--
+
+formMethod :: (FormMethodTag t, IsAttributeOf FormMethod a) => FormMethod -> AttributeOf t a
+formMethod = TAttr formMethodTag
+
+action :: (ActionTag t, IsAttributeOf Action a) => String -> AttributeOf t a
+action = TAttr actionTag . Action
+
+selected :: (SelectedTag t, IsAttributeOf Selected a) => AttributeOf t a
+selected = TAttr selectedTag Selected
+
+selectedB :: (SelectedTag t, IsAttributeOf Selected a) => Bool -> AttributesOf t a -> AttributesOf t a
+selectedB True   = (TAttr selectedTag Selected:)
+selectedB False  = id
+
+selectedMS :: (SelectedTag t, IsAttributeOf Selected a) => Maybe Selected -> AttributesOf t a -> AttributesOf t a
+selectedMS (Just Selected) = (TAttr selectedTag Selected:)
+selectedMS Nothing         = id
+
+value    :: (ValueTag t, IsAttributeOf Value a) => String -> AttributeOf t a
 value    = TAttr valueTag . Value
 
-data     Textarea
-instance IsNode Textarea
-instance IsChildOf Leaf Textarea
-instance IsAttributeOf Rows Textarea
-instance IsAttributeOf Cols Textarea
-instance IsAttributeOf Name Textarea
+inputType :: (InputTypeTag t, IsAttributeOf InputType a) => InputType -> AttributeOf t a
+inputType = TAttr inputTypeTag
 
-data     Form
-instance IsNode Form
-instance IsBlock Form
+--
+
+$(node "Label" [] [] [])
+--instance IsBlock Label
+instance IsInline a => IsChildOf a Label
+label :: LabelTag t => Star t Label
+label = tStar labelTag
+
+$(node "Input" [] [''Name, ''Value, ''InputType] [])
+input :: InputTag t => Nullary t Input
+input = tNullary inputTag
+
+$(node "Option" [] [''Selected, ''Value] [''Leaf])
+option :: OptionTag t => Star t Option
+option = tStar optionTag
+
+$(node "Select" [] [''Multiple, ''Name, ''Size] [''Option])
+-- actually Plus Select would be a more precise type
+select :: SelectTag t => Star t Select
+select = tStar selectTag
+
+$(node "Textarea" [] [''Rows, ''Cols, ''Name] [''Leaf])
+textarea :: (TextareaTag t, AttributeTags t) => Rows -> Cols -> Star t Textarea
+textarea r c = tStar textareaTag ! [rows (fromRows r), cols (fromCols c)]
+
+$(node "Form" [Block] [''Action, ''FormMethod] [''Select, ''Textarea, ''Input, ''Label])
+$(nodeChildren ''Document [''Form])
 instance Form ~ a => IsChildOf (Div a) Form
-instance IsAttributeOf Action Form
-instance IsAttributeOf FormMethod Form
-instance IsChildOf Form Document
-instance IsChildOf Form Section
-instance IsChildOf Select Form
-instance IsChildOf Textarea Form
-instance IsChildOf Input Form
-instance IsChildOf Label Form
-
-class ValueAttributeTag t => FormAttributeTags t where
-  inputTypeTag         :: t InputType
-  formMethodTag        :: t FormMethod
-  actionTag            :: t Action
-  selectedTag          :: t Selected
-  multipleTag          :: t Multiple
-
-class FormAttributeTags t => FormTags t where
-  formTag              :: t Form
-  inputTag             :: t Input
-  optionTag            :: t Option
-  selectTag            :: t Select
-  textareaTag          :: t Textarea
-  labelTag             :: t Label
-
 form :: FormTags t => Star t Form
 form = tStar formTag
 
-input :: FormTags t => Nullary t Input
-input = tNullary inputTag
+--
 
-option :: FormTags t => Star t Option
-option = tStar optionTag
+class (ActionTag t
+      ,ValueTag t
+      ,FormMethodTag t
+      ,SelectedTag t
+      ,InputTypeTag t
+      ,MultipleTag t
+      ) => FormAttributeTags t
 
--- actually Plus Select would be a more precise type
-select :: FormTags t => Star t Select
-select = tStar selectTag
+class (FormAttributeTags t
+      ,LabelTag t
+      ,InputTag t
+      ,OptionTag t
+      ,FormTag t
+      ,SelectTag t
+      ,TextareaTag t
+      ) => FormTags t
 
 selectQ :: (LeafTags t, FormTags t) => AttributesOf t Select -> (String, String) -> [(String, String)] -> TDoc t Select
 selectQ attrs (val0, children0) opts
   = select ! attrs $ (option ! [value val0, selected] $ children0) : map f opts
   where
     f (val, children) = option ! [value val] $ children
-
-textarea :: (FormTags t, AttributeTags t) => Rows -> Cols -> Star t Textarea
-textarea r c = tStar textareaTag ! [rows (fromRows r), cols (fromCols c)]
-
-label :: FormTags t => Star t Label
-label = tStar labelTag
-
-inputType :: (FormAttributeTags t, IsAttributeOf InputType a) => InputType -> AttributeOf t a
-inputType = TAttr inputTypeTag
-
-formMethod :: (FormAttributeTags t, IsAttributeOf FormMethod a) => FormMethod -> AttributeOf t a
-formMethod = TAttr formMethodTag
-
-action :: (FormAttributeTags t, IsAttributeOf Action a) => String -> AttributeOf t a
-action = TAttr actionTag . Action
-
-selected :: (FormAttributeTags t, IsAttributeOf Selected a) => AttributeOf t a
-selected = TAttr selectedTag Selected
-
-selectedB :: (FormAttributeTags t, IsAttributeOf Selected a) => Bool -> AttributesOf t a -> AttributesOf t a
-selectedB True   = (TAttr selectedTag Selected:)
-selectedB False  = id
-
-selectedMS :: (FormAttributeTags t, IsAttributeOf Selected a) => Maybe Selected -> AttributesOf t a -> AttributesOf t a
-selectedMS (Just Selected) = (TAttr selectedTag Selected:)
-selectedMS Nothing         = id
-

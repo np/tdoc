@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies, ScopedTypeVariables, GADTs, FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies, ScopedTypeVariables, GADTs,
+             FlexibleContexts, TemplateHaskell #-}
 module Text.TDoc.XHtml where
 
 import qualified Text.XHtml.Strict as X
@@ -9,13 +10,13 @@ import qualified Data.ByteString.Char8       as S8
 import qualified Data.ByteString.Lazy.Char8  as L8
 import Text.TDoc.Core
 import Text.TDoc.Tags
+import Text.TDoc.TH
 import Text.TDoc.Attributes
 import Text.TDoc.Tags.Form
 
-instance (t ~ HtmlTag, IsNode a) => HTML (TDoc t a) where toHtml = renderTDocHtml
-
-instance t ~ HtmlTag => HTML (ChildOf t fatherTag) where
-  toHtml (Child x) = renderTDocHtml x
+type HtmlAttributeOf    = AttributeOf HtmlTag
+type HtmlAttributesOf x = AttributesOf HtmlTag x
+type HtmlDoc            = TDoc HtmlTag
 
 data HtmlTag t where
   RootTag       :: HtmlTag Root
@@ -68,75 +69,26 @@ instance LeafTags HtmlTag where
   strictByteStringTag  = RawHtmlTag . toHtml . S8.unpack
   lazyByteStringTag    = RawHtmlTag . toHtml . L8.unpack
 
-instance ValueAttributeTag HtmlTag where
-  valueTag             = ValueTag
+-- instance ValueAttributeTag HtmlTag where valueTag = ValueTag
+-- ...
+-- instance ActionAttributeTag HtmlTag where actionTag = ActionTag
+$(tagInstances ''HtmlTag [''Value, ''Action, ''FormMethod
+                         ,''Selected, ''InputType, ''Multiple
+                         ,''Form, ''Input, ''Option, ''Select
+                         ,''Textarea, ''Label, ''Style, ''Src
+                         ,''Height, ''Width, ''ClassAttr, ''Alt
+                         ,''Name, ''Size, ''Rows, ''Cols, ''Span
+                         ,''Anchor, ''Root, ''Preambule, ''Document
+                         ,''UList, ''Item, ''Paragraph
+                         ,''Title, ''Image, ''Br, ''Hr, ''Table
+                         ,''Row, ''Col, ''HCol, ''Section, ''Subsection
+                         ,''Div, ''HLink
+                         ])
 
-instance FormAttributeTags HtmlTag where
-  inputTypeTag         = InputTypeTag
-  formMethodTag        = FormMethodTag
-  actionTag            = ActionTag
-  selectedTag          = SelectedTag
-  multipleTag          = MultipleTag
-
-instance FormTags HtmlTag where
-  formTag              = FormTag
-  inputTag             = InputTag
-  optionTag            = OptionTag
-  selectTag            = SelectTag
-  textareaTag          = TextareaTag
-  labelTag             = LabelTag
-
-instance StyleAttrTag HtmlTag where
-  styleTag             = StyleTag
-
-instance SrcAttrTag HtmlTag where
-  srcTag               = SrcTag
-
-instance HeightAttrTag HtmlTag where
-  heightTag            = HeightTag
-
-instance WidthAttrTag HtmlTag where
-  widthTag             = WidthTag
-
-instance ClassAttrTag HtmlTag where
-  classAttrTag         = ClassAttrTag
-
-instance AttributeTags HtmlTag where
-  altTag               = AltTag
-  nameTag              = NameTag
-  sizeTag              = SizeTag
-  rowsTag              = RowsTag
-  colsTag              = ColsTag
-
-instance SpanTag HtmlTag where
-  spanTag              = SpanTag
-
-instance AnchorTag HtmlTag where
-  anchorTag            = AnchorTag
-
-instance Tags HtmlTag where
-  rootTag              = RootTag
-  preambuleTag         = PreambuleTag
-  documentTag          = DocumentTag
-  sectionTag           = SectionTag
-  subsectionTag        = SubsectionTag
-  uListTag             = UListTag
-  itemTag              = ItemTag
-  paragraphTag         = ParagraphTag
-  hLinkTag             = HLinkTag
-  titleTag             = TitleTag
-  imageTag             = ImageTag
-  brTag                = BrTag
-  hrTag                = HrTag
-  tableTag             = TableTag
-  rowTag               = RowTag
-  colTag               = ColTag
-  hColTag              = HColTag
-  divTag               = DivTag
-
-type HtmlAttributeOf = AttributeOf HtmlTag
-type HtmlAttributesOf x = AttributesOf HtmlTag x
-type HtmlDoc = TDoc HtmlTag
+instance FormAttributeTags HtmlTag
+instance FormTags HtmlTag
+instance AttributeTags HtmlTag
+instance Tags HtmlTag
 
 rawHtml :: Html -> HtmlDoc a
 rawHtml = tNullary . RawHtmlTag
@@ -265,6 +217,11 @@ renderTDocHtml (TNode tag attrs children) = f tag
         optionAttr (TAttr ValueTag      (Value n))      = X.value n
         optionAttr (TAttr SelectedTag   Selected)       = X.selected
         optionAttr _ = error "optionAttr: bug"
+
+instance (t ~ HtmlTag, IsNode a) => HTML (TDoc t a) where toHtml = renderTDocHtml
+
+instance t ~ HtmlTag => HTML (ChildOf t fatherTag) where
+  toHtml (Child x) = renderTDocHtml x
 
 ex :: IO ()
 ex = putStr

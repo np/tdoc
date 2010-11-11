@@ -22,4 +22,5 @@ library
                    Text.TDoc.Tags.Form
                    Text.TDoc.XHtml
                    Text.TDoc.QQ
+                   Text.TDoc.TH
   ghc-options:     -Wall

@@ -14,6 +14,10 @@ class (IsNode father, IsNode child) => child `IsChildOf` father
 
 class (IsAttribute attr, IsNode node) => IsAttributeOf attr node
 
+class IsNode a => IsBlockOrInline a
+class IsBlockOrInline a => IsInline a
+class IsBlockOrInline a => IsBlock a
+
 data AttributeOf t node =
   forall attr. (attr `IsAttributeOf` node) =>
     TAttr (t attr) attr
