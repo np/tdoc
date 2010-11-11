@@ -30,7 +30,7 @@ data     Multiple = Multiple
 data     Label
 instance IsNode Label
 instance IsBlock Label
-instance IsInline a => Child Label a
+instance IsInline a => IsChildOf a Label
 
 data InputType
   = TEXT
@@ -65,14 +65,14 @@ instance IsAttributeOf InputType Input
 
 data     Select
 instance IsNode Select
-instance Child Select Option
+instance IsChildOf Option Select
 instance IsAttributeOf Multiple Select
 instance IsAttributeOf Name Select
 instance IsAttributeOf Size Select
 
 data     Option
 instance IsNode Option
-instance Child Option Leaf
+instance IsChildOf Leaf Option
 instance IsAttributeOf Selected Option
 instance IsAttributeOf Value Option
 class    ValueAttributeTag t where valueTag :: t Value
@@ -81,7 +81,7 @@ value    = TAttr valueTag . Value
 
 data     Textarea
 instance IsNode Textarea
-instance Child Textarea Leaf
+instance IsChildOf Leaf Textarea
 instance IsAttributeOf Rows Textarea
 instance IsAttributeOf Cols Textarea
 instance IsAttributeOf Name Textarea
@@ -89,15 +89,15 @@ instance IsAttributeOf Name Textarea
 data     Form
 instance IsNode Form
 instance IsBlock Form
-instance Form ~ a => Child Form (Div a)
+instance Form ~ a => IsChildOf (Div a) Form
 instance IsAttributeOf Action Form
 instance IsAttributeOf FormMethod Form
-instance Child Document Form
-instance Child Section  Form
-instance Child Form Select
-instance Child Form Textarea
-instance Child Form Input
-instance Child Form Label
+instance IsChildOf Form Document
+instance IsChildOf Form Section
+instance IsChildOf Select Form
+instance IsChildOf Textarea Form
+instance IsChildOf Input Form
+instance IsChildOf Label Form
 
 class ValueAttributeTag t => FormAttributeTags t where
   inputTypeTag         :: t InputType

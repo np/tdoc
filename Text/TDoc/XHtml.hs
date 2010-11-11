@@ -14,15 +14,15 @@ import Text.TDoc.Tags.Form
 
 instance (t ~ HtmlTag, IsNode a) => HTML (TDoc t a) where toHtml = renderTDocHtml
 
-instance t ~ HtmlTag => HTML (TChildOf t fatherTag) where
-  toHtml (TChild x) = renderTDocHtml x
+instance t ~ HtmlTag => HTML (ChildOf t fatherTag) where
+  toHtml (Child x) = renderTDocHtml x
 
 data HtmlTag t where
   RootTag       :: HtmlTag Root
   PreambuleTag  :: HtmlTag Preambule
   DocumentTag   :: HtmlTag Document
-  SectionTag    :: Child Span a => HtmlDoc a -> HtmlTag Section
-  SubsectionTag :: Child Span a => HtmlDoc a -> HtmlTag Subsection
+  SectionTag    :: (a `IsChildOf` Span) => HtmlDoc a -> HtmlTag Section
+  SubsectionTag :: (a `IsChildOf` Span) => HtmlDoc a -> HtmlTag Subsection
   UListTag      :: HtmlTag UList
   ItemTag       :: HtmlTag Item
   ParagraphTag  :: HtmlTag Paragraph
@@ -196,7 +196,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f RowsTag       = error "impossible"
         f ColsTag       = error "impossible"
 
-        heading :: Child Span a => (Html -> Html) -> HtmlDoc a -> Html
+        heading :: (a `IsChildOf` Span) => (Html -> Html) -> HtmlDoc a -> Html
         heading hN child = hN {-X.! map commonAttr attrs-} X.<< child X.+++ children
 
         genSpan :: nodeTag ~ Span => Maybe (String, HtmlAttributesOf nodeTag) -> Html

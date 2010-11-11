@@ -9,15 +9,15 @@ import qualified Data.ByteString.Lazy  as Lazy
 
 data Root
 instance IsNode Root
-instance Child Root Preambule
-instance Child Root Document
-root :: forall t doc preambule. (Tags t, ToTDoc t preambule Preambule, ToTDoc t doc Document) => preambule -> doc -> TDoc t Root
-root x y = tStar rootTag [ TChild (toTDoc x :: TDoc t Preambule)
-                         , TChild (toTDoc y :: TDoc t Document) ]
+instance IsChildOf Preambule Root
+instance IsChildOf Document Root
+root :: forall t doc preambule. (Tags t, ToTDoc preambule t Preambule, ToTDoc doc t Document) => preambule -> doc -> TDoc t Root
+root x y = tStar rootTag [ Child (toTDoc x :: TDoc t Preambule)
+                         , Child (toTDoc y :: TDoc t Document) ]
 
 data Preambule
 instance IsNode Preambule
-instance Child Preambule Title
+instance IsChildOf Title Preambule
 preambule :: Tags t => Star t Preambule
 preambule = tStar preambuleTag
 
@@ -34,37 +34,37 @@ image = tNullary imageTag
 
 data Document
 instance IsNode Document
-instance Child Document Section
--- instance IsBlock a => Child Document a
-instance Child Document Paragraph
-instance Child Document UList
-instance Child Document Table
-instance Child Document Hr
-instance a ~ Document => Child Document (Div a)
+instance IsChildOf Section Document
+-- instance IsBlock a => IsChildOf a Document
+instance IsChildOf Paragraph Document
+instance IsChildOf UList Document
+instance IsChildOf Table Document
+instance IsChildOf Hr Document
+instance a ~ Document => IsChildOf (Div a) Document
 document :: Tags t => Star t Document
 document = tStar documentTag
 
 data Subsection
 instance IsNode Subsection
-instance Child Section Subsection
-instance IsBlock a => Child Subsection a
-subsection :: forall a b t. (Tags t, Child Span a, ToTDoc t b a) => b -> Star t Subsection
+instance IsChildOf Subsection Section
+instance IsBlock a => IsChildOf a Subsection
+subsection :: forall a b t. (Tags t, a `IsChildOf` Span, ToTDoc b t a) => b -> Star t Subsection
 subsection t = tStar (subsectionTag (toTDoc t :: TDoc t a))
 
 data Section
 instance IsNode Section
--- instance IsBlock a => Child Section a
-instance Child Section Paragraph
-instance a ~ Section => Child Section (Div a)
-instance Child Section UList
-instance Child Section Table
-instance Child Section Hr
-section :: forall a b t. (Tags t, Child Span a, ToTDoc t b a) => b -> Star t Section
+-- instance IsBlock a => IsChildOf a Section
+instance IsChildOf Paragraph Section
+instance a ~ Section => IsChildOf (Div a) Section
+instance IsChildOf UList Section
+instance IsChildOf Table Section
+instance IsChildOf Hr Section
+section :: forall a b t. (Tags t, a `IsChildOf` Span, ToTDoc b t a) => b -> Star t Section
 section t = tStar (sectionTag (toTDoc t :: TDoc t a))
 
 data Item
 instance IsNode Item
-instance IsBlockOrInline a => Child Item a
+instance IsBlockOrInline a => IsChildOf a Item
 item :: Tags t => Star t Item
 item = tStar itemTag
 
@@ -72,7 +72,7 @@ data UList
 instance IsNode UList
 instance IsBlock UList
 instance IsBlockOrInline UList
-instance Child UList Item
+instance IsChildOf Item UList
 ulist :: Tags t => Star t UList
 ulist = tStar uListTag
 
@@ -80,23 +80,23 @@ data Paragraph
 instance IsNode Paragraph
 instance IsBlock Paragraph
 instance IsBlockOrInline Paragraph
-instance IsInline a => Child Paragraph a
+instance IsInline a => IsChildOf a Paragraph
 paragraph :: Tags t => Star t Paragraph
 paragraph = tStar paragraphTag
-para :: (Tags t, ToChildren t children Paragraph) => children -> TDoc t Paragraph
+para :: (Tags t, ToChildren children t Paragraph) => children -> TDoc t Paragraph
 para = paragraph
 
 data HLink
 instance IsNode HLink
 instance IsInline HLink
 instance IsBlockOrInline HLink
-instance IsInline a => Child HLink a
+instance IsInline a => IsChildOf a HLink
 hlink :: Tags t => String -> Star t HLink
 hlink url = tStar (hLinkTag (Url url))
 
 data Title
 instance IsNode Title
-instance Child Title Leaf
+instance IsChildOf Leaf Title
 title :: Tags t => Star t Title
 title = tStar titleTag
 
@@ -143,17 +143,17 @@ instance IsBlockOrInline a => IsBlockOrInline (Div a)
 instance IsBlockOrInline Table
 
 
-instance Child a b => Child (Div a) b
+instance IsChildOf b a => IsChildOf b (Div a)
 
 
-instance IsBlockOrInline a => Child Col a
-instance IsBlockOrInline a => Child HCol a
+instance IsBlockOrInline a => IsChildOf a Col
+instance IsBlockOrInline a => IsChildOf a HCol
 
 
 
-instance Child Row Col
-instance Child Row HCol
-instance Child Table Row
+instance IsChildOf Col Row
+instance IsChildOf HCol Row
+instance IsChildOf Row Table
 
 class LeafTags t where
   charTag              :: Char -> t Leaf
@@ -167,8 +167,8 @@ class (SpanTag t
   rootTag              :: t Root
   preambuleTag         :: t Preambule
   documentTag          :: t Document
-  sectionTag           :: Child Span a => TDoc t a -> t Section
-  subsectionTag        :: Child Span a => TDoc t a -> t Subsection
+  sectionTag           :: (a `IsChildOf` Span) => TDoc t a -> t Section
+  subsectionTag        :: (a `IsChildOf` Span) => TDoc t a -> t Subsection
   uListTag             :: t UList
   itemTag              :: t Item
   paragraphTag         :: t Paragraph
@@ -183,9 +183,9 @@ class (SpanTag t
   hColTag              :: t HCol
   divTag               :: t (Div a)
 
-instance (LeafTags t, Child a Leaf) => ToChildren t Char               a where toChildren = toChildren . char
-instance (LeafTags t, Child a Leaf) => ToChildren t Lazy.ByteString    a where toChildren = toChildren . lazyByteString
-instance (LeafTags t, Child a Leaf) => ToChildren t Strict.ByteString  a where toChildren = toChildren . strictByteString
+instance (LeafTags t, Leaf `IsChildOf` a) => ToChildren Char               t a where toChildren = toChildren . char
+instance (LeafTags t, Leaf `IsChildOf` a) => ToChildren Lazy.ByteString    t a where toChildren = toChildren . lazyByteString
+instance (LeafTags t, Leaf `IsChildOf` a) => ToChildren Strict.ByteString  t a where toChildren = toChildren . strictByteString
 
 
 char :: LeafTags t => Char -> TDoc t Leaf
@@ -194,14 +194,23 @@ char = tNullary . charTag
 string :: LeafTags t => String -> TDoc t Leaf
 string = tNullary . stringTag
 
-instance (LeafTags t, b ~ Char, a ~ Leaf) => ToTDoc t [b] a where
-  toTDoc = string
-
 strictByteString :: LeafTags t => Strict.ByteString -> TDoc t Leaf
 strictByteString = tNullary . strictByteStringTag
 
 lazyByteString :: LeafTags t => Lazy.ByteString -> TDoc t Leaf
 lazyByteString = tNullary . lazyByteStringTag
+
+instance (LeafTags t, a ~ Leaf) => ToTDoc Char t a where
+  toTDoc = char
+
+instance (LeafTags t, b ~ Char, a ~ Leaf) => ToTDoc [b] t a where
+  toTDoc = string
+
+instance (LeafTags t, a ~ Leaf) => ToTDoc Strict.ByteString t a where
+  toTDoc = strictByteString
+
+instance (LeafTags t, a ~ Leaf) => ToTDoc Lazy.ByteString t a where
+  toTDoc = lazyByteString
 
 div :: Tags t => Star t (Div a)
 div = tStar divTag
@@ -209,7 +218,7 @@ div = tStar divTag
 -- | 'ulistQ' is a quick version of 'ulist' when all children
 -- of a UList are homogeneous one can factor the building of
 -- the Item nodes.
-ulistQ :: (Tags t, Child Item a) => [TDoc t a] -> TDoc t UList
+ulistQ :: (Tags t, a `IsChildOf` Item) => [TDoc t a] -> TDoc t UList
 ulistQ = tStar uListTag . map item
 
 table :: Tags t => Star t Table
@@ -224,7 +233,7 @@ hcol = tStar hColTag
 row :: Tags t => Star t Row
 row = tStar rowTag
 
--- since their is no 'instance Child Leaf X'
+-- since their is no 'instance IsChildOf X Leaf'
 -- one cannot build a 'TNode attrs [x] :: Tags t => TDoc t Leaf'
 -- but one can build a 'TNode attrs [] :: Tags t => TDoc t Leaf'
 
@@ -237,7 +246,7 @@ data Span
 instance IsNode Span
 instance IsInline Span
 instance IsBlockOrInline Span
-instance IsInline a => Child Span a
+instance IsInline a => IsChildOf a Span
 class    ClassAttrTag t => SpanTag t where spanTag :: t Span
 
 spanDoc :: SpanTag t => Star t Span
@@ -274,7 +283,7 @@ data Anchor
 instance IsNode Anchor
 instance IsInline Anchor
 instance IsBlockOrInline Anchor
-instance Child Anchor Span
+instance IsChildOf Span Anchor
 class    AnchorTag t where anchorTag :: Identifier -> t Anchor
 anchor :: AnchorTag t => Identifier -> Unary t Anchor
 anchor i = tUnary (anchorTag i)
