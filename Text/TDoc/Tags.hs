@@ -139,13 +139,6 @@ bold = spanDocCA "bold"
 
 --
 
-$(node "Subsection" [NoTag] [] [])
-instance IsBlock a => IsChildOf a Subsection
-class SubsectionTag t where
-  subsectionTag :: (a `IsChildOf` Span) => TDoc t a -> t Subsection
-subsection :: forall a b t. (SubsectionTag t, a `IsChildOf` Span, ToTDoc b t a) => b -> Star t Subsection
-subsection t = tStar (subsectionTag (toTDoc t :: TDoc t a))
-
 data Div a
 class DivTag t where divTag :: t (Div a)
 div :: DivTag t => Star t (Div a)
@@ -154,6 +147,13 @@ instance IsNode a => IsNode (Div a)
 instance IsBlock a => IsBlock (Div a)
 instance IsBlockOrInline a => IsBlockOrInline (Div a)
 instance IsChildOf b a => IsChildOf b (Div a)
+
+$(node "Subsection" [NoTag] [] [])
+instance IsBlock a => IsChildOf a Subsection
+class SubsectionTag t where
+  subsectionTag :: (a `IsChildOf` Span) => TDoc t a -> t Subsection
+subsection :: forall a b t. (SubsectionTag t, a `IsChildOf` Span, ToTDoc b t a) => b -> Star t Subsection
+subsection t = tStar (subsectionTag (toTDoc t :: TDoc t a))
 
 $(node "Section" [NoTag] [] [''Paragraph, ''UList, ''Table, ''Hr, ''Subsection])
 -- instance IsBlock a => IsChildOf a Section
@@ -193,23 +193,29 @@ root :: forall t doc preambule. (RootTag t, ToTDoc preambule t Preambule, ToTDoc
 root x y = tStar rootTag [ Child (toTDoc x :: TDoc t Preambule)
                          , Child (toTDoc y :: TDoc t Document) ]
 
-class (SpanTag t
-      ,AnchorTag t
-      ,ItemTag t
-      ,UListTag t
+class (AttributeTags t
+      ,LeafTags t
       ,ParagraphTag t
+      ,TitleTag t
       ,BrTag t
       ,HrTag t
-      ,TableTag t
-      ,RowTag t
       ,ColTag t
       ,HColTag t
-      ,AttributeTags t
+      ,RowTag t
+      ,TableTag t
+      ,ItemTag t
+      ,UListTag t
+      ,SpanTag t
+      ,DivTag t
+      ,SubsectionTag t
+      ,SectionTag t
+      ,HLinkTag t
+      ,AnchorTag t
       ,ImageTag t
-      ,RootTag t
-      ,DocumentTag t
       ,PreambuleTag t
-      ,LeafTags t) => Tags t where
+      ,DocumentTag t
+      ,RootTag t
+      ) => Tags t where
 
 -- since their is no 'instance IsChildOf X Leaf'
 -- one cannot build a 'TNode attrs [x] :: Tags t => TDoc t Leaf'
