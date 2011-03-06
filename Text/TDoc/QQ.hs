@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell, FlexibleContexts #-}
-module Text.TDoc.QQ (frQQ, frTop, frAntiq) where
+module Text.TDoc.QQ (
+    -- * frquotes support
+    frQQ, frTop, frAntiq) where
 
 import qualified Language.Haskell.TH as TH
 import Language.Haskell.TH.Quote
