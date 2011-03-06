@@ -1,3 +1,13 @@
+--------------------------------------------------------------------
+-- !
+-- Module     : Text.TDoc.Tags.Form
+-- Copyright  : (c) Nicolas Pouillard 2009-2011
+-- License    : BSD3
+--
+-- Maintainer : Nicolas Pouillard <nicolas.pouillard@gmail.com>
+--
+--------------------------------------------------------------------
+
 {-# LANGUAGE TypeFamilies, EmptyDataDecls, TemplateHaskell,
              MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Text.TDoc.Tags.Form where

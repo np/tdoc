@@ -1,3 +1,13 @@
+--------------------------------------------------------------------
+-- !
+-- Module     : Text.TDoc.TH
+-- Copyright  : (c) Nicolas Pouillard 2009-2011
+-- License    : BSD3
+--
+-- Maintainer : Nicolas Pouillard <nicolas.pouillard@gmail.com>
+--
+--------------------------------------------------------------------
+
 {-# LANGUAGE TemplateHaskell #-}
 module Text.TDoc.TH
   (node

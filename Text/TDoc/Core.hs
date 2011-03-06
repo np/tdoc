@@ -1,3 +1,13 @@
+--------------------------------------------------------------------
+-- !
+-- Module     : Text.TDoc.Core
+-- Copyright  : (c) Nicolas Pouillard 2009-2011
+-- License    : BSD3
+--
+-- Maintainer : Nicolas Pouillard <nicolas.pouillard@gmail.com>
+--
+--------------------------------------------------------------------
+
 {-# LANGUAGE Rank2Types, ExistentialQuantification, MultiParamTypeClasses,
              TypeFamilies, FlexibleInstances, FlexibleContexts #-}
 module Text.TDoc.Core where

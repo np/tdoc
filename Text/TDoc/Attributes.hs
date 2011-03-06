@@ -1,3 +1,13 @@
+--------------------------------------------------------------------
+-- !
+-- Module     : Text.TDoc.Attributes
+-- Copyright  : (c) Nicolas Pouillard 2009-2011
+-- License    : BSD3
+--
+-- Maintainer : Nicolas Pouillard <nicolas.pouillard@gmail.com>
+--
+--------------------------------------------------------------------
+
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
              TemplateHaskell #-}
 module Text.TDoc.Attributes where
