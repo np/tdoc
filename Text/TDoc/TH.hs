@@ -17,7 +17,8 @@ module Text.TDoc.TH
   ,attributes
   ,tagInstances
   ,tagInstance
-  ,NodeOpt(..))
+  ,NodeOpt(..)
+  ,NodeOpts)
 where
 
 import Data.Char (toLower)

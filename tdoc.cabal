@@ -2,7 +2,7 @@ name:            tdoc
 cabal-Version:   >=1.2
 version:         0.3.0
 license:         BSD3
-license-File:    LICENSE
+license-file:    LICENSE
 copyright:       (c) Nicolas Pouillard
 author:          Nicolas Pouillard
 maintainer:      Nicolas Pouillard <nicolas.pouillard@gmail.com>
