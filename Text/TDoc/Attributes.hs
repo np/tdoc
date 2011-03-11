@@ -39,12 +39,15 @@ newtype Rows        = Rows { fromRows :: Int }
 newtype Cols        = Cols { fromCols :: Int }
 newtype Style       = Style { fromStyle :: String } -- put something more typeful
 newtype Identifier  = Identifier { fromIdentifier :: String }
+newtype Href        = Href { fromHref :: String }
 
 $(attributes [''Width, ''Height, ''Src, ''Size, ''Alt, ''ClassAttr, ''Name
-             ,''Rows, ''Cols, ''Style])
+             ,''Rows, ''Cols, ''Style, ''Identifier, ''Href])
 
+-- Common attributes
 instance IsNode a => IsAttributeOf ClassAttr a
 instance IsNode n => IsAttributeOf Style n
+instance IsNode n => IsAttributeOf Identifier n
 
 width      :: (WidthTag t, Width `IsAttributeOf` node) => Length -> AttributeOf t node
 width      = TAttr widthTag . Width
@@ -76,6 +79,12 @@ cols       = TAttr colsTag . Cols
 style      :: (StyleTag t, Style `IsAttributeOf` a) => String -> AttributeOf t a
 style      = TAttr styleTag . Style
 
+identifier :: (IdentifierTag t, Identifier `IsAttributeOf` a) => String -> AttributeOf t a
+identifier = TAttr identifierTag . Identifier
+
+href       :: (HrefTag t, Href `IsAttributeOf` a) => String -> AttributeOf t a
+href       = TAttr hrefTag . Href
+
 class (WidthTag t
       ,HeightTag t
       ,SrcTag t
@@ -86,4 +95,6 @@ class (WidthTag t
       ,NameTag t
       ,RowsTag t
       ,ColsTag t
+      ,IdentifierTag t
+      ,HrefTag t
       ) => AttributeTags t

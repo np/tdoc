@@ -179,10 +179,11 @@ class HLinkTag t where hLinkTag :: Url -> t HLink
 hlink :: HLinkTag t => String -> Star t HLink
 hlink url = tStar (hLinkTag (Url url))
 
-$(node "Anchor" [NoTag, Inline] [] [''Span])
-class AnchorTag t where anchorTag :: Identifier -> t Anchor
-anchor :: AnchorTag t => Identifier -> Unary t Anchor
-anchor i = tUnary (anchorTag i)
+-- TODO in HTML5 <a> is supposed to work on blocks too.
+$(node "Anchor" [NoTag, Inline] [''Href] [''Span])
+class AnchorTag t where anchorTag :: t Anchor
+anchor :: AnchorTag t => Unary t Anchor
+anchor = tUnary anchorTag
 
 $(node "Image" [Inline] [''Alt, ''Src, ''Height, ''Width] [])
 image :: ImageTag t => Nullary t Image

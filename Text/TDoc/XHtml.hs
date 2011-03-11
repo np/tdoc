@@ -38,7 +38,7 @@ data HtmlTag t where
   ItemTag       :: HtmlTag Item
   ParagraphTag  :: HtmlTag Paragraph
   SpanTag       :: HtmlTag Span
-  AnchorTag     :: Identifier -> HtmlTag Anchor
+  AnchorTag     :: HtmlTag Anchor
   HLinkTag      :: Url -> HtmlTag HLink
   TitleTag      :: HtmlTag Title
   ImageTag      :: HtmlTag Image
@@ -57,6 +57,8 @@ data HtmlTag t where
   TextareaTag   :: HtmlTag Textarea
   LabelTag      :: HtmlTag Label
   StyleTag      :: HtmlTag Style
+  IdentifierTag :: HtmlTag Identifier
+  HrefTag       :: HtmlTag Href
   AltTag        :: HtmlTag Alt
   SrcTag        :: HtmlTag Src
   WidthTag      :: HtmlTag Width
@@ -92,7 +94,7 @@ $(tagInstances ''HtmlTag [''Value, ''Action, ''FormMethod
                          ,''UList, ''Item, ''Paragraph
                          ,''Title, ''Image, ''Br, ''Hr, ''Table
                          ,''Row, ''Col, ''HCol, ''Section, ''Subsection
-                         ,''Div, ''HLink
+                         ,''Div, ''HLink, ''Identifier, ''Href
                          ])
 
 instance FormAttributeTags HtmlTag
@@ -115,35 +117,37 @@ renderTDocHtml :: forall nodeTag . IsNode nodeTag => HtmlDoc nodeTag -> Html
 renderTDocHtml (TNode tag attrs children) = f tag
   where f :: IsNode nodeTag => HtmlTag nodeTag -> Html
         f RootTag       = toHtml children
-        f PreambuleTag  = X.header X.! map commonAttr attrs X.<< children
-        f TitleTag      = X.thetitle X.! map commonAttr attrs X.<< children
-        f DocumentTag   = X.body X.! map commonAttr attrs X.<< children
-        f (SectionTag x)= heading X.h1 x
-        f (SubsectionTag x) = heading X.h2 x
-        f UListTag      = X.ulist X.! map commonAttr attrs X.<< children
-        f ItemTag       = X.li X.! map commonAttr attrs X.<< children
-        f ParagraphTag  = X.p X.! map commonAttr attrs X.<< children
-        f DivTag        = X.thediv X.! map commonAttr attrs X.<< children
-        f TableTag      = X.table X.! map commonAttr attrs X.<< children
-        f ColTag        = X.td X.! map commonAttr attrs X.<< children
-        f HColTag       = X.th X.! map commonAttr attrs X.<< children
-        f RowTag        = X.tr X.! map commonAttr attrs X.<< children
+        f PreambuleTag  = X.header   X.! commonAttrs "head"  attrs X.<< children
+        f TitleTag      = X.thetitle X.! commonAttrs "title" attrs X.<< children
+        f DocumentTag   = X.body     X.! commonAttrs "body"  attrs X.<< children
+        f (SectionTag x)     = heading X.h1 x
+        f (SubsectionTag x)  = heading X.h2 x
+        f UListTag      = X.ulist    X.! commonAttrs "ul"     attrs X.<< children
+        f ItemTag       = X.li       X.! commonAttrs "li"     attrs X.<< children
+        f ParagraphTag  = X.p        X.! commonAttrs "p"      attrs X.<< children
+        f DivTag        = X.thediv   X.! commonAttrs "div"   attrs X.<< children
+        f TableTag      = X.table    X.! commonAttrs "table" attrs X.<< children
+        f ColTag        = X.td       X.! commonAttrs "td" attrs X.<< children
+        f HColTag       = X.th       X.! commonAttrs "th" attrs X.<< children
+        f RowTag        = X.tr       X.! commonAttrs "tr" attrs X.<< children
         f SpanTag       = genSpan (lookupClassAttr attrs)
         f (HLinkTag url)= toHtml $ X.hotlink (fromUrl url) X.! map hlinkAttr attrs X.<< children
-        f ImageTag      = assert (null children) $ X.image X.! map imageAttr attrs
-        f BrTag         = assert (null children) $ X.br X.! map commonAttr attrs
-        f HrTag         = assert (null children) $ X.hr X.! map commonAttr attrs
+        f ImageTag      = assert (null children) $ X.image X.! map imageAttr         attrs
+        f BrTag         = assert (null children) $ X.br    X.! commonAttrs "br" attrs
+        f HrTag         = assert (null children) $ X.hr    X.! commonAttrs "hr" attrs
+        f InputTag      = assert (null children) $ X.input X.! map inputAttr         attrs
         f (RawHtmlTag h)= assert (null children) $ assert (null attrs) h
-        f FormTag       = X.form      X.! map formAttr      attrs X.<< children
-        f LabelTag      = X.label     X.! map commonAttr    attrs X.<< children
-        f InputTag      = X.input     X.! map inputAttr     attrs
-        f SelectTag     = X.select    X.! map selectAttr    attrs X.<< children
-        f TextareaTag   = X.textarea  X.! map textareaAttr  attrs X.<< children
-        f OptionTag     = X.option    X.! map optionAttr    attrs X.<< children
-        f (AnchorTag i) = X.anchor    X.! (X.identifier (fromIdentifier i) : map commonAttr attrs) X.<< children
+        f FormTag       = X.form      X.! map formAttr             attrs X.<< children
+        f LabelTag      = X.label     X.! commonAttrs "label" attrs X.<< children
+        f SelectTag     = X.select    X.! map selectAttr           attrs X.<< children
+        f TextareaTag   = X.textarea  X.! map textareaAttr         attrs X.<< children
+        f OptionTag     = X.option    X.! map optionAttr           attrs X.<< children
+        f AnchorTag     = X.anchor    X.! map anchorAttr           attrs X.<< children
         f ClassAttrTag  = error "impossible"
         f AltTag        = error "impossible"
         f StyleTag      = error "impossible"
+        f IdentifierTag = error "impossible"
+        f HrefTag       = error "impossible"
         f SrcTag        = error "impossible"
         f WidthTag      = error "impossible"
         f HeightTag     = error "impossible"
@@ -159,74 +163,96 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f ColsTag       = error "impossible"
 
         heading :: (a `IsChildOf` Span) => (Html -> Html) -> HtmlDoc a -> Html
-        heading hN child = hN {-X.! map commonAttr attrs-} X.<< child X.+++ children
+        heading hN child = hN {-X.! map (commonAttr attrs-} X.<< child X.+++ children
 
         genSpan :: nodeTag ~ Span => Maybe (String, HtmlAttributesOf nodeTag) -> Html
-        genSpan (Just ("strong", attrs')) = X.strong X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("italics", attrs')) = X.italics X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("tt", attrs')) = X.tt X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("small", attrs')) = X.small X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("big", attrs')) = X.big X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("sub", attrs')) = X.sub X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("sup", attrs')) = X.sup X.! map commonAttr attrs' X.<< children
-        genSpan (Just ("bold", attrs')) = X.bold X.! map commonAttr attrs' X.<< children
+        genSpan (Just ("strong", attrs'))   = X.strong X.! commonAttrs "strong" attrs' X.<< children
+        genSpan (Just ("italics", attrs'))  = X.italics X.! commonAttrs "i" attrs' X.<< children
+        genSpan (Just ("tt", attrs'))       = X.tt X.! commonAttrs "tt" attrs' X.<< children
+        genSpan (Just ("small", attrs'))    = X.small X.! commonAttrs "small" attrs' X.<< children
+        genSpan (Just ("big", attrs'))      = X.big X.! commonAttrs "big" attrs' X.<< children
+        genSpan (Just ("sub", attrs'))      = X.sub X.! commonAttrs "sub" attrs' X.<< children
+        genSpan (Just ("sup", attrs'))      = X.sup X.! commonAttrs "sup" attrs' X.<< children
+        genSpan (Just ("bold", attrs'))     = X.bold X.! commonAttrs "bold" attrs' X.<< children
         genSpan _  | null attrs = toHtml children
-                   | otherwise  = X.thespan X.! map commonAttr attrs X.<< children
+                   | otherwise  = X.thespan X.! commonAttrs "span" attrs X.<< children
 
-        commonAttr :: IsNode a => HtmlAttributeOf a -> HtmlAttr
-        commonAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
-        commonAttr (TAttr StyleTag (Style s)) = X.thestyle s
-        commonAttr _ = error "commonAttr: bug"
+        commonAttr :: IsNode a => String -> HtmlAttributeOf a -> HtmlAttr
+        commonAttr _ (TAttr ClassAttrTag (ClassAttr x))   = X.theclass x
+        commonAttr _ (TAttr StyleTag (Style s))           = X.thestyle s
+        commonAttr _ (TAttr IdentifierTag (Identifier i)) = X.identifier i
+        commonAttr nam _ = error $ "commonAttr: " ++ nam ++ ": bug"
+
+        commonAttrs :: IsNode a => String -> [HtmlAttributeOf a] -> [HtmlAttr]
+        commonAttrs = map . commonAttr
 
         hlinkAttr :: HtmlAttributeOf HLink -> HtmlAttr
         hlinkAttr = undefined
 
         inputAttr :: HtmlAttributeOf Input -> HtmlAttr
-        inputAttr (TAttr ClassAttrTag (ClassAttr x))  = X.theclass x
-        inputAttr (TAttr StyleTag (Style x))          = X.thestyle x
         inputAttr (TAttr InputTypeTag it)             = X.thetype . show $ it
         inputAttr (TAttr NameTag (Name n))            = X.name n
         inputAttr (TAttr ValueTag (Value n))          = X.value n
-        inputAttr _                                   = error "inputAttr: bug"
+        inputAttr attr                                = commonAttr "input" attr
 
         formAttr :: HtmlAttributeOf Form -> HtmlAttr
-        formAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
-        formAttr (TAttr StyleTag (Style x))   = X.thestyle x
         formAttr (TAttr FormMethodTag fm)     = X.method . show $ fm
         formAttr (TAttr ActionTag (Action a)) = X.action a
-        formAttr _ = error "formAttr: bug"
+        formAttr attr = commonAttr "form" attr
 
         imageAttr :: HtmlAttributeOf Image -> HtmlAttr
-        imageAttr (TAttr ClassAttrTag (ClassAttr x)) = X.theclass x
-        imageAttr (TAttr StyleTag (Style x))   = X.thestyle x
-        imageAttr (TAttr AltTag (Alt a))       = X.alt a
-        imageAttr (TAttr SrcTag (Src a))       = X.src a
-        imageAttr (TAttr WidthTag (Width w))   = X.width . show . toPixels $ w
-        imageAttr (TAttr HeightTag (Height h)) = X.height . show . toPixels $ h
-        imageAttr _ = error "imageAttr: bug"
+        imageAttr (TAttr AltTag (Alt a))        =  X.alt a
+        imageAttr (TAttr SrcTag (Src a))        =  X.src a
+        imageAttr (TAttr WidthTag (Width w))    =  X.width . show . toPixels $ w
+        imageAttr (TAttr HeightTag (Height h))  =  X.height . show . toPixels $ h
+        imageAttr attr = commonAttr "img" attr
 
         selectAttr :: HtmlAttributeOf Select -> HtmlAttr
-        selectAttr (TAttr ClassAttrTag  (ClassAttr x))  = X.theclass x
-        selectAttr (TAttr StyleTag      (Style x))      = X.thestyle x
-        selectAttr (TAttr MultipleTag   Multiple)       = X.multiple
-        selectAttr (TAttr NameTag       (Name x))       = X.name x
-        selectAttr (TAttr SizeTag       (Size x))       = X.size (show x)
-        selectAttr _ = error "selectAttr: bug"
+        selectAttr (TAttr MultipleTag  Multiple)  = X.multiple
+        selectAttr (TAttr NameTag      (Name x))  = X.name x
+        selectAttr (TAttr SizeTag      (Size x))  = X.size (show x)
+        selectAttr attr = commonAttr "select" attr
 
         textareaAttr :: HtmlAttributeOf Textarea -> HtmlAttr
-        textareaAttr (TAttr ClassAttrTag  (ClassAttr x))  = X.theclass x
-        textareaAttr (TAttr StyleTag      (Style x))      = X.thestyle x
-        textareaAttr (TAttr NameTag       (Name x))       = X.name x
-        textareaAttr (TAttr RowsTag       (Rows x))       = X.rows (show x)
-        textareaAttr (TAttr ColsTag       (Cols x))       = X.cols (show x)
-        textareaAttr _ = error "textareaAttr: bug"
+        textareaAttr (TAttr  NameTag  (Name x))  = X.name x
+        textareaAttr (TAttr  RowsTag  (Rows x))  = X.rows (show x)
+        textareaAttr (TAttr  ColsTag  (Cols x))  = X.cols (show x)
+        textareaAttr attr = commonAttr "textarea" attr
 
         optionAttr :: HtmlAttributeOf Option -> HtmlAttr
-        optionAttr (TAttr ClassAttrTag  (ClassAttr x))  = X.theclass x
-        optionAttr (TAttr StyleTag      (Style x))      = X.thestyle x
         optionAttr (TAttr ValueTag      (Value n))      = X.value n
         optionAttr (TAttr SelectedTag   Selected)       = X.selected
-        optionAttr _ = error "optionAttr: bug"
+        optionAttr attr = commonAttr "option" attr
+
+        anchorAttr :: HtmlAttributeOf Anchor -> HtmlAttr
+        anchorAttr (TAttr HrefTag (Href url)) = X.href url
+        anchorAttr attr = commonAttr "a" attr
+
+{-
+TODO
+commonAttr from http://www.html-5.com/attributes/
+
+accesskey
+class
+contenteditable
+contextmenu
+draggable
+dropzone
+hidden
+id
+dir
+lang
+spellcheck
+style
+tabindex
+title
+Author-Defined data-* Attributes
+on... Event Attributes
+Microdata item... Attributes
+XML Atttributes in HTML xmlns and xml:space
+
+DONE
+-}
 
 instance (t ~ HtmlTag, IsNode a) => HTML (TDoc t a) where toHtml = renderTDocHtml
 
