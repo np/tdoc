@@ -1,6 +1,6 @@
 name:            tdoc
 cabal-Version:   >=1.2
-version:         0.3.0
+version:         0.4.0
 license:         BSD3
 license-file:    LICENSE
 copyright:       (c) Nicolas Pouillard
@@ -14,7 +14,7 @@ build-type:      Simple
 
 library
   build-depends:   base>=3.0&&<5, transformers,
-                   template-haskell, xhtml, bytestring
+                   template-haskell >= 2.5, xhtml, bytestring
   exposed-modules: Text.TDoc
                    Text.TDoc.Core
                    Text.TDoc.Attributes
