@@ -37,6 +37,13 @@ stripIndents = go
                   | otherwise = x:go xs
         go                 "" = ""
 
+quasiQuoter :: String -> QuasiQuoter
+quasiQuoter qqName =
+  QuasiQuoter (err "expressions") (err "patterns")
+-- if GHC7
+              (err "types") (err "declarations")
+-- endif
+  where err kind _ = error $ qqName ++ ": not available in " ++ kind
+
 frQQ :: QuasiQuoter
-frQQ = QuasiQuoter expandingQQExpr
-                   (error "Text.TDoc.QQ.frQQ: not available in patterns")
+frQQ = (quasiQuoter "Text.TDoc.QQ.frQQ"){quoteExp = expandingQQExpr }
