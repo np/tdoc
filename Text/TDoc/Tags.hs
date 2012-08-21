@@ -10,7 +10,7 @@
 
 {-# LANGUAGE TypeFamilies, ScopedTypeVariables, EmptyDataDecls,
              MultiParamTypeClasses, FlexibleContexts,
-             FlexibleInstances, TemplateHaskell #-}
+             FlexibleInstances, TemplateHaskell, TypeOperators #-}
 module Text.TDoc.Tags where
 
 import Text.TDoc.Core

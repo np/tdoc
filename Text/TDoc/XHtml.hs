@@ -9,7 +9,7 @@
 --------------------------------------------------------------------
 
 {-# LANGUAGE TypeFamilies, ScopedTypeVariables, GADTs,
-             FlexibleContexts, TemplateHaskell #-}
+             FlexibleContexts, TemplateHaskell, TypeOperators #-}
 module Text.TDoc.XHtml where
 
 import qualified Text.XHtml.Strict as X

@@ -9,7 +9,7 @@
 --------------------------------------------------------------------
 
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses,
-             TemplateHaskell #-}
+             TemplateHaskell, TypeOperators #-}
 module Text.TDoc.Attributes where
 
 import Text.TDoc.Core

@@ -9,7 +9,7 @@
 --------------------------------------------------------------------
 
 {-# LANGUAGE Rank2Types, ExistentialQuantification, MultiParamTypeClasses,
-             TypeFamilies, FlexibleInstances, FlexibleContexts #-}
+             TypeFamilies, FlexibleInstances, FlexibleContexts, TypeOperators #-}
 module Text.TDoc.Core where
 
 import Data.Monoid
