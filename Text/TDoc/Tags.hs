@@ -9,7 +9,7 @@
 --------------------------------------------------------------------
 
 {-# LANGUAGE TypeFamilies, ScopedTypeVariables, EmptyDataDecls,
-             MultiParamTypeClasses, FlexibleContexts,
+             MultiParamTypeClasses, FlexibleContexts, Rank2Types,
              FlexibleInstances, TemplateHaskell, TypeOperators #-}
 module Text.TDoc.Tags where
 

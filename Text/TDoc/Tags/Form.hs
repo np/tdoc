@@ -8,7 +8,7 @@
 --
 --------------------------------------------------------------------
 
-{-# LANGUAGE TypeFamilies, EmptyDataDecls, TemplateHaskell,
+{-# LANGUAGE TypeFamilies, EmptyDataDecls, TemplateHaskell, Rank2Types,
              MultiParamTypeClasses, FlexibleContexts, FlexibleInstances #-}
 module Text.TDoc.Tags.Form where
 
