@@ -24,7 +24,8 @@ where
 import Data.Char (toLower)
 import Text.TDoc.Core (IsNode, IsChildOf, IsAttributeOf, IsAttribute
                       ,IsInline, IsBlock, IsBlockOrInline)
-import Language.Haskell.TH
+import Language.Haskell.TH (Name,mkName,nameBase,Pat(..),Dec(..)
+                           ,Exp(..),Type(..),TyVarBndr(..),Body(..),Q)
 
 data NodeOpt = NoTag | Inline | Block | BlockOrInline
   deriving (Eq)
