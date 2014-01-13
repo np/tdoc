@@ -1,4 +1,5 @@
 dist
 *.swp
+/.redo/
 /.cabal-sandbox/
 /cabal.sandbox.config
