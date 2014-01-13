@@ -74,6 +74,7 @@ data HtmlTag t where
   SizeTag       :: HtmlTag Size
   RowsTag       :: HtmlTag Rows
   ColsTag       :: HtmlTag Cols
+  TitleAttrTag  :: HtmlTag TitleAttr
 
 instance LeafTags HtmlTag where
   charTag              = RawHtmlTag . toHtml
@@ -94,7 +95,7 @@ $(tagInstances ''HtmlTag [''Value, ''Action, ''FormMethod
                          ,''UList, ''Item, ''Paragraph
                          ,''Title, ''Image, ''Br, ''Hr, ''Table
                          ,''Row, ''Col, ''HCol, ''Section, ''Subsection
-                         ,''Div, ''HLink, ''Identifier, ''Href
+                         ,''Div, ''HLink, ''Identifier, ''Href, ''TitleAttr
                          ])
 
 instance FormAttributeTags HtmlTag
@@ -161,6 +162,7 @@ renderTDocHtml (TNode tag attrs children) = f tag
         f SizeTag       = error "impossible"
         f RowsTag       = error "impossible"
         f ColsTag       = error "impossible"
+        f TitleAttrTag  = error "impossible"
 
         heading :: (a `IsChildOf` Span) => (Html -> Html) -> HtmlDoc a -> Html
         heading hN child = hN {-X.! map (commonAttr attrs-} X.<< child X.+++ children
@@ -187,7 +189,9 @@ renderTDocHtml (TNode tag attrs children) = f tag
         commonAttrs = map . commonAttr
 
         hlinkAttr :: HtmlAttributeOf HLink -> HtmlAttr
-        hlinkAttr = undefined
+        hlinkAttr (TAttr NameTag      (Name      n)) = X.name n
+        hlinkAttr (TAttr TitleAttrTag (TitleAttr t)) = X.title t
+        hlinkAttr attr                               = commonAttr "hlink" attr
 
         inputAttr :: HtmlAttributeOf Input -> HtmlAttr
         inputAttr (TAttr InputTypeTag it)             = X.thetype . show $ it
