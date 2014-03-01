@@ -173,7 +173,7 @@ class SectionTag t where
 section :: forall a b t. (SectionTag t, a `IsChildOf` Span, ToTDoc b t a) => b -> Star t Section
 section t = tStar (sectionTag (toTDoc t :: TDoc t a))
 
-$(node "HLink" [NoTag, Inline] [] [])
+$(node "HLink" [NoTag, Inline] [''TitleAttr] [])
 instance IsInline a => IsChildOf a HLink
 class HLinkTag t where hLinkTag :: Url -> t HLink
 hlink :: HLinkTag t => String -> Star t HLink
