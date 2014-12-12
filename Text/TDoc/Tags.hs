@@ -10,7 +10,8 @@
 
 {-# LANGUAGE TypeFamilies, ScopedTypeVariables, EmptyDataDecls,
              MultiParamTypeClasses, FlexibleContexts, Rank2Types,
-             FlexibleInstances, TemplateHaskell, TypeOperators #-}
+             FlexibleInstances, TemplateHaskell, TypeOperators,
+             AllowAmbiguousTypes #-}
 module Text.TDoc.Tags where
 
 import Text.TDoc.Core
