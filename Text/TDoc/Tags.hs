@@ -11,7 +11,10 @@
 {-# LANGUAGE TypeFamilies, ScopedTypeVariables, EmptyDataDecls,
              MultiParamTypeClasses, FlexibleContexts, Rank2Types,
              FlexibleInstances, TemplateHaskell, TypeOperators,
-             AllowAmbiguousTypes #-}
+             CPP #-}
+#if MIN_VERSION_base(4,7,0)
+{-# LANGUAGE AllowAmbiguousTypes #-}
+#endif
 module Text.TDoc.Tags where
 
 import Text.TDoc.Core
